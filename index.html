@@ -910,6 +910,7 @@ function genPDF(type){
   sF(CYAN);doc.rect(99,111,100,0.6,'F');
   sf(8,'normal');sT([180,195,210]);doc.text('Protection Ondes Electromagnétiques · Certifié NEXIO / COFRAC',148,120,{align:'center'});
   doc.text('Période : '+periode,148,129,{align:'center'});
+  sF(NAVY);doc.rect(128,147,40,40,'F');
   try{doc.addImage(LOGO_B64,'JPEG',129,148,38,38);}catch(e){}
   sf(9,'bold');sT(CYAN);doc.text('www.wave-protect.fr',148,185,{align:'center'});
  
@@ -1001,21 +1002,41 @@ function genPDF(type){
   // Ruptures
   var enRupture=Object.keys(RUPTURES).filter(i=>RUPTURES[i]&&RUPTURES[i].rupture);
   if(enRupture.length){
-    sf(8,'bold');sT([255,128,21]);doc.text('! RUPTURES EN COURS ('+enRupture.length+' produits)',10,yS+6);yS+=10;
-    var cols3=3,rw=277/cols3,rh3=6;
-    enRupture.slice(0,12).forEach((idx,i)=>{
+    // Titre section
+    sF([255,128,21]);doc.rect(10,yS,277,7,'F');
+    sf(8,'bold');sT([11,31,58]);doc.text('! RUPTURES DE STOCK EN COURS : '+enRupture.length+' produit(s)',148,yS+5,{align:'center'});
+    yS+=9;
+    // En-tête tableau
+    sF([17,44,72]);doc.rect(10,yS,185,6,'F');doc.rect(196,yS,51,6,'F');doc.rect(248,yS,39,6,'F');
+    sf(6,'bold');sT([0,194,212]);
+    doc.text('PRODUIT',12,yS+4.5);doc.text('CATEGORIE',197,yS+4.5);doc.text('DEPUIS',249,yS+4.5);
+    yS+=6;
+    // Lignes produits
+    enRupture.forEach((idx,i)=>{
       var p=PRODUITS_CATALOGUE[parseInt(idx)];
-      var cx2=10+(i%cols3)*rw,cy2=yS+Math.floor(i/cols3)*rh3;
-      sF([17,44,72]);doc.rect(cx2,cy2,rw-1,rh3-1,'F');
-      sf(6,'normal');sT([255,180,100]);
-      var nm=(p?p.nom:'?').substring(0,38);
-      doc.text(nm,cx2+2,cy2+4);
+      var r=RUPTURES[idx];
+      var bg=i%2===0?[22,52,82]:[17,44,72];
+      sF(bg);doc.rect(10,yS,277,7,'F');
+      // Bordure gauche orange
+      sF([255,128,21]);doc.rect(10,yS,2,7,'F');
+      sf(6,'normal');sT(WHITE);
+      var nm=p?p.nom:'Produit '+idx;
+      // Tronquer intelligemment à 50 chars
+      if(nm.length>52)nm=nm.substring(0,50)+'...';
+      doc.text(nm,14,yS+4.5);
+      sT([0,194,212]);
+      doc.text(p?p.cat:'--',197,yS+4.5);
+      sT([180,195,210]);
+      doc.text(r.dateRupture||'--',249,yS+4.5);
+      yS+=7;
+      // Si on dépasse la page, on arrête
+      if(yS>195){
+        var reste=enRupture.length-i-1;
+        if(reste>0){sf(6,'normal');sT([180,195,210]);doc.text('... et '+reste+' autre(s) — voir onglet Ruptures',12,yS+4);yS+=8;}
+        return;
+      }
     });
-    if(enRupture.length>12){
-      sf(6,'normal');sT([180,195,210]);
-      doc.text('... et '+(enRupture.length-12)+' autre(s)',10,yS+Math.ceil(12/cols3)*rh3+4);
-    }
-    yS+=Math.ceil(Math.min(enRupture.length,12)/cols3)*rh3+6;
+    yS+=4;
   }
   // Commentaire
   if(d&&d.commentaire&&d.commentaire.trim()){
@@ -1044,4 +1065,3 @@ function genPDF(type){
 </script>
 </body>
 </html>
- 
