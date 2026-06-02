@@ -90,6 +90,17 @@ tr:hover td{background:#fafbfc}
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.rupt-item{display:grid;grid-template-columns:32px 1fr 90px 100px 130px;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--border);font-size:12px}
+.rupt-item:last-child{border-bottom:none}.rupt-item:hover{background:#fafbfc}
+.rupt-hdr{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:var(--bg)}
+.rupt-check{width:16px;height:16px;cursor:pointer;accent-color:var(--red)}
+.rupt-stock{font-family:var(--mono);font-size:12px}
+.stock-ok{color:var(--green)}.stock-low{color:var(--orange)}.stock-zero{color:var(--red);font-weight:600}
+.rupt-date{font-size:11px;font-family:var(--mono)}
+.cat-badge{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;background:var(--bg);color:var(--text2)}
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filter-btn{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--text2);transition:all .15s}
+.filter-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 </style>
 </head>
 <body>
@@ -104,6 +115,7 @@ tr:hover td{background:#fafbfc}
       <div class="ni" onclick="goView('mensuel',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Mensuel</div>
       <div class="ns" style="margin-top:8px">Données</div>
       <div class="ni" onclick="goView('historique',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Historique</div>
+      <div class="ni" onclick="goView('ruptures',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Ruptures</div>
       <div class="ni" onclick="goView('config',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Configuration</div>
     </nav>
     <div class="sf"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Non configuré</span></div>
@@ -240,6 +252,10 @@ CREATE POLICY "Modification publique" ON semaines
             <div class="field"><label>NPS estimé</label><input id="f-nps" type="number"></div>
           </div></div>
         </div>
+        <div class="fs" id="ftab-commentaire-wrap" style="margin-top:12px">
+          <div class="fst">Commentaire / Points marquants de la semaine</div>
+          <textarea id="f-commentaire" placeholder="Ex: Lancement promo -10%, pic de trafic suite publication Instagram, rupture WP3..." style="width:100%;height:80px;padding:8px 10px;border-radius:var(--r);border:1px solid var(--border);font-size:12px;font-family:var(--font);color:var(--text);resize:vertical;background:#fff"></textarea>
+        </div>
         <div style="display:flex;gap:7px;padding-top:14px;border-top:1px solid var(--border)">
           <button class="btn primary" id="btn-save" onclick="sauvegarder()"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>Sauvegarder</button>
           <button class="btn" onclick="genPDF('hebdo')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>PDF Hebdo</button>
@@ -283,6 +299,21 @@ CREATE POLICY "Modification publique" ON semaines
         </div>
       </div>
  
+      <!-- RUPTURES -->
+      <div id="view-ruptures" class="view">
+        <div class="sh" style="margin-bottom:14px">
+          <div><div class="st">Suivi des ruptures de stock</div><div class="ss" id="rupt-count"></div></div>
+          <button class="btn primary sm" onclick="sauvegarderRuptures()"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/></svg>Sauvegarder</button>
+        </div>
+        <div class="filter-bar" id="rupt-filters"></div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:var(--rl);overflow:hidden">
+          <div class="rupt-item rupt-hdr">
+            <span>Rupture</span><span>Produit</span><span>Catégorie</span><span>Stock initial</span><span>Date rupture</span>
+          </div>
+          <div id="ruptures-list"></div>
+        </div>
+      </div>
+ 
     </div>
   </div>
 </div>
@@ -296,6 +327,7 @@ var SBURL = '';
 var SBKEY = '';
 var DB = {};
 var MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+var PRODUITS_CATALOGUE = [{"nom": "Aqua Clip WP1 | Broche anti-ondes waterproof 50m", "cat": "Broche", "stock": 23, "rupture": false, "dateRupture": null}, {"nom": "Pendentif anti-ondes WP3 — Protection électromagnétique en cuir", "cat": "Pendentif", "stock": 26, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Quadralinhos anti-ondes en liège naturel — Protection éco-responsable — WP1", "cat": "Bracelet", "stock": 15, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes homme en cuir Camel — WP1", "cat": "Bracelet", "stock": 17, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Toi & Moi", "cat": "Broche", "stock": 29, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Love You", "cat": "Broche", "stock": 36, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Love", "cat": "Broche", "stock": 45, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Arbre de vie", "cat": "Broche", "stock": 34, "rupture": false, "dateRupture": null}, {"nom": "Serre poignet Clean Water Protect — Détox électromagnétique nocturne", "cat": "Sport", "stock": 347, "rupture": false, "dateRupture": null}, {"nom": "Serre poignet anti-ondes training sport WP6", "cat": "Sport", "stock": 500, "rupture": false, "dateRupture": null}, {"nom": "Talonnettes Anti-Ondes WP2 - Protection EMF & Rééquilibrage Énergétique", "cat": "Semelle", "stock": 13, "rupture": false, "dateRupture": null}, {"nom": "Broche Blanche WP1  Tjrs au Taquet by Steve Savidan", "cat": "Broche", "stock": 200, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes homme en cuir Bleu — WP1", "cat": "Bracelet", "stock": 21, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes homme en cuir Noir — WP1", "cat": "Bracelet", "stock": 74, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes Homme en cuir Bleu marine — WP1", "cat": "Bracelet", "stock": 24, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Bleu Marine — WP1", "cat": "Bracelet", "stock": 35, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Fushia — WP1", "cat": "Bracelet", "stock": 21, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Camel — WP1", "cat": "Bracelet", "stock": 18, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Bleu Roi — WP1", "cat": "Bracelet", "stock": 24, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Bleu Roi — WP2", "cat": "Bracelet", "stock": 18, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Rose — WP1", "cat": "Bracelet", "stock": 12, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Camel — WP1", "cat": "Bracelet", "stock": 19, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Bleu roi — WP1", "cat": "Bracelet", "stock": 15, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Bleu roi — WP2", "cat": "Bracelet", "stock": 10, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Bleu marine — WP1", "cat": "Bracelet", "stock": 14, "rupture": false, "dateRupture": null}, {"nom": "Pendentif anti-ondes WP2 — Protection électromagnétique en cuir", "cat": "Pendentif", "stock": 569, "rupture": false, "dateRupture": null}, {"nom": "Pendentif anti-ondes WP2 — Protection électromagnétique en Liège", "cat": "Pendentif", "stock": 24, "rupture": false, "dateRupture": null}, {"nom": "Pendentif anti-ondes WP1 — Protection électromagnétique en Liège", "cat": "Pendentif", "stock": 21, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Bleu anti-ondes en liège naturel — Protection éco-responsable — WP1", "cat": "Bracelet", "stock": 14, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Noir anti-ondes en liège naturel — Protection éco-responsable — WP2", "cat": "Bracelet", "stock": 244, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Marron anti-ondes en liège naturel — Protection éco-responsable — WP1", "cat": "Bracelet", "stock": 16, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Violet anti-ondes en liège naturel — Protection éco-responsable — WP1", "cat": "Bracelet", "stock": 49, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — Liberté", "cat": "Broche", "stock": 27, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — Visage", "cat": "Broche", "stock": 32, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — Arbre de vie", "cat": "Broche", "stock": 14, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — VTT", "cat": "Broche", "stock": 16, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — Football", "cat": "Broche", "stock": 33, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — VTT", "cat": "Broche", "stock": 42, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — Football", "cat": "Broche", "stock": 19, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — Rugby", "cat": "Broche", "stock": 9, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — Musicien", "cat": "Broche", "stock": 28, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — Sprinter", "cat": "Broche", "stock": 14, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Liberté", "cat": "Broche", "stock": 29, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Arbre de vie", "cat": "Broche", "stock": 34, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Visage", "cat": "Broche", "stock": 32, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Fleur", "cat": "Broche", "stock": 17, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Danseuse", "cat": "Broche", "stock": 24, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Running", "cat": "Broche", "stock": 51, "rupture": false, "dateRupture": null}, {"nom": "Serre poignet anti-ondes training sport WP12", "cat": "Sport", "stock": 497, "rupture": false, "dateRupture": null}, {"nom": "Kit duo Nutriments + — Dynamisation énergétique des aliments", "cat": "Accessoire", "stock": 47, "rupture": false, "dateRupture": null}];
  
 // Appel REST Supabase natif
 async function sbFetch(method, path, body) {
@@ -318,8 +350,8 @@ async function sbFetch(method, path, body) {
 }
  
 var SEED = {
-  '2026-S21':{key:'2026-S21',sem:21,annee:2026,mois:5,moisNom:'Mai',caNet:220.5,caBrut:213,caObj:1500,nbCmds:3,panier:71,annulees:0,sessions:232,visiteurs:125,txConv:3.87,txRebond:74.13,nvxCl:4,txRec:20,newsletter:3,b2bActifs:0,b2bCmds:0,b2bCA:0,budgetPub:0,roas:0,meta:0,google:0,tiktok:0,note:0,nbAvis:0,recla:0,nps:null,produits:[{ref:'WP12',nom:'Accessoire Sport WP12',cat:'Bracelet',u:3,ca:204},{ref:'WP1',nom:'Bracelet WP1 — Protection Initiation',cat:'Bracelet',u:2,ca:134.5},{ref:'WP1',nom:'Clean Water',cat:'Bracelet',u:2,ca:106}]},
-  '2026-S22':{key:'2026-S22',sem:22,annee:2026,mois:5,moisNom:'Mai',caNet:444.7,caBrut:507.5,caObj:1500,nbCmds:3,panier:148.23,annulees:0,sessions:114,visiteurs:99,txConv:1.94,txRebond:75.72,nvxCl:3,txRec:25,newsletter:0,b2bActifs:0,b2bCmds:0,b2bCA:0,budgetPub:0,roas:0,meta:0,google:0,tiktok:0,note:0,nbAvis:0,recla:0,nps:null,produits:[{ref:'WP12',nom:'Accessoire Sport WP12',cat:'Bracelet',u:3,ca:204},{ref:'WP1',nom:'Bracelet WP1 — Protection Initiation',cat:'Bracelet',u:2,ca:134.5},{ref:'WP1',nom:'Clean Water',cat:'Bracelet',u:2,ca:106}]}
+  '2026-S21':{key:'2026-S21',sem:21,annee:2026,mois:5,moisNom:'Mai',caNet:220.5,caBrut:213,caObj:2500,nbCmds:3,panier:71,annulees:0,sessions:232,visiteurs:125,txConv:3.87,txRebond:74.13,nvxCl:4,txRec:20,newsletter:3,b2bActifs:0,b2bCmds:0,b2bCA:0,budgetPub:0,roas:0,meta:0,google:0,tiktok:0,note:0,nbAvis:0,recla:0,nps:null,produits:[{ref:'WP12',nom:'Accessoire Sport WP12',cat:'Bracelet',u:3,ca:204},{ref:'WP1',nom:'Bracelet WP1 — Protection Initiation',cat:'Bracelet',u:2,ca:134.5},{ref:'WP1',nom:'Clean Water',cat:'Bracelet',u:2,ca:106}]},
+  '2026-S22':{key:'2026-S22',sem:22,annee:2026,mois:5,moisNom:'Mai',caNet:444.7,caBrut:507.5,caObj:2500,nbCmds:3,panier:148.23,annulees:0,sessions:114,visiteurs:99,txConv:1.94,txRebond:75.72,nvxCl:3,txRec:25,newsletter:0,b2bActifs:0,b2bCmds:0,b2bCA:0,budgetPub:0,roas:0,meta:0,google:0,tiktok:0,note:0,nbAvis:0,recla:0,nps:null,produits:[{ref:'WP12',nom:'Accessoire Sport WP12',cat:'Bracelet',u:3,ca:204},{ref:'WP1',nom:'Bracelet WP1 — Protection Initiation',cat:'Bracelet',u:2,ca:134.5},{ref:'WP1',nom:'Clean Water',cat:'Bracelet',u:2,ca:106}]}
 };
  
 function getCfg(){ 
@@ -452,7 +484,7 @@ function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.c
 // ══════════════════════════════════════════════
 //  NAVIGATION
 // ══════════════════════════════════════════════
-var TITLES={saisie:'Saisie semaine',hebdo:'Rapport hebdomadaire',mensuel:'Rapport mensuel',historique:'Historique',config:'Configuration'};
+var TITLES={saisie:'Saisie semaine',hebdo:'Rapport hebdomadaire',mensuel:'Rapport mensuel',historique:'Historique',ruptures:'Ruptures de stock',config:'Configuration'};
 function goView(name,el){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
@@ -462,6 +494,7 @@ function goView(name,el){
   if(name==='hebdo'){buildSemSel();renderHebdo();}
   if(name==='mensuel'){buildMoisSel();renderMensuel();}
   if(name==='historique')renderHistorique();
+  if(name==='ruptures')renderRuptures();
   if(name==='config'){
     var c=getCfg();
     if(c.url)document.getElementById('cfg-url').value=c.url;
@@ -495,7 +528,8 @@ function getFormData(){
     b2bActifs:nn(document.getElementById('f-b2bactifs').value),b2bCmds:nn(document.getElementById('f-b2bcmds').value),b2bCA:nn(document.getElementById('f-b2bca').value),
     budgetPub:nn(document.getElementById('f-budgetpub').value),roas:nn(document.getElementById('f-roas').value),meta:nn(document.getElementById('f-meta').value),google:nn(document.getElementById('f-google').value),tiktok:nn(document.getElementById('f-tiktok').value),
     note:nn(document.getElementById('f-note').value),nbAvis:nn(document.getElementById('f-nbavis').value),recla:nn(document.getElementById('f-recla').value),nps:nn(document.getElementById('f-nps').value),
-    produits:[1,2,3].map(p=>({ref:document.getElementById('p'+p+'r').value,nom:document.getElementById('p'+p+'n').value,cat:document.getElementById('p'+p+'c').value,u:nn(document.getElementById('p'+p+'u').value),ca:nn(document.getElementById('p'+p+'ca').value)}))
+    produits:[1,2,3].map(p=>({ref:document.getElementById('p'+p+'r').value,nom:document.getElementById('p'+p+'n').value,cat:document.getElementById('p'+p+'c').value,u:nn(document.getElementById('p'+p+'u').value),ca:nn(document.getElementById('p'+p+'ca').value)})),
+    commentaire:document.getElementById('f-commentaire')?document.getElementById('f-commentaire').value:''
   };
 }
  
@@ -503,6 +537,7 @@ function setFormData(d){
   if(!d)return;
   var m=[['canet','caNet'],['cabrut','caBrut'],['caobj','caObj'],['cmds','nbCmds'],['panier','panier'],['annulees','annulees'],['sessions','sessions'],['visiteurs','visiteurs'],['txconv','txConv'],['txrebond','txRebond'],['nvxcl','nvxCl'],['txrec','txRec'],['newsletter','newsletter'],['b2bactifs','b2bActifs'],['b2bcmds','b2bCmds'],['b2bca','b2bCA'],['budgetpub','budgetPub'],['roas','roas'],['meta','meta'],['google','google'],['tiktok','tiktok'],['note','note'],['nbavis','nbAvis'],['recla','recla'],['nps','nps']];
   m.forEach(([id,k])=>{var el=document.getElementById('f-'+id);if(el)el.value=d[k]!==null&&d[k]!==undefined?d[k]:'';});
+  var cm=document.getElementById('f-commentaire');if(cm)cm.value=d.commentaire||'';
   if(d.produits)[1,2,3].forEach(p=>{var pr=d.produits[p-1]||{};['r','n','c'].forEach(f=>{var el=document.getElementById('p'+p+f);if(el)el.value=pr[f==='r'?'ref':f==='n'?'nom':'cat']||'';});['u','ca'].forEach(f=>{var el=document.getElementById('p'+p+f);if(el)el.value=pr[f]!==null&&pr[f]!==undefined?pr[f]:'';});});
 }
  
@@ -698,6 +733,94 @@ async function clearAll(){
 }
  
 // ══════════════════════════════════════════════
+//  RUPTURES
+// ══════════════════════════════════════════════
+var RUPTURES = {}; // {index: {rupture:bool, dateRupture:'YYYY-MM-DD'}}
+var RUPT_FILTER = 'tous';
+ 
+async function loadRuptures(){
+  try{
+    var r=localStorage.getItem('wpf-ruptures');
+    RUPTURES=r?JSON.parse(r):{};
+  }catch(e){RUPTURES={};}
+  // Charger depuis Supabase si connecté
+  if(SBURL&&SBKEY){
+    try{
+      var data=await sbFetch('GET','ruptures?select=*');
+      if(data&&data.length){
+        RUPTURES={};
+        data.forEach(r=>{RUPTURES[r.idx]={rupture:r.rupture,dateRupture:r.date_rupture};});
+        localStorage.setItem('wpf-ruptures',JSON.stringify(RUPTURES));
+      }
+    }catch(e){}
+  }
+}
+ 
+async function sauvegarderRuptures(){
+  localStorage.setItem('wpf-ruptures',JSON.stringify(RUPTURES));
+  if(SBURL&&SBKEY){
+    try{
+      for(var idx in RUPTURES){
+        var r=RUPTURES[idx];
+        await sbFetch('POST','ruptures',{idx:parseInt(idx),rupture:r.rupture,date_rupture:r.dateRupture,updated_at:new Date().toISOString()});
+      }
+      toast('Ruptures sauvegardées ✓');
+    }catch(e){toast('Sauvegardé localement');}
+  } else {
+    toast('Ruptures sauvegardées localement ✓');
+  }
+  renderRuptures();
+}
+ 
+function renderRuptures(){
+  var cats=['tous',...new Set(PRODUITS_CATALOGUE.map(p=>p.cat))];
+  var filterBar=document.getElementById('rupt-filters');
+  if(filterBar){
+    filterBar.innerHTML=cats.map(c=>`<div class="filter-btn ${RUPT_FILTER===c?'active':''}" onclick="setRuptFilter('${c}')">${c==='tous'?'Tous':c}</div>`).join('');
+  }
+  var filtered=PRODUITS_CATALOGUE.map((p,i)=>({...p,idx:i})).filter(p=>RUPT_FILTER==='tous'||p.cat===RUPT_FILTER);
+  var enRupture=filtered.filter(p=>(RUPTURES[p.idx]&&RUPTURES[p.idx].rupture));
+  var count=document.getElementById('rupt-count');
+  if(count)count.textContent=enRupture.length+' produit(s) en rupture sur '+PRODUITS_CATALOGUE.length;
+  var list=document.getElementById('ruptures-list');
+  if(!list)return;
+  list.innerHTML=filtered.map(p=>{
+    var r=RUPTURES[p.idx]||{rupture:false,dateRupture:null};
+    var stockClass=p.stock===0?'stock-zero':p.stock<=10?'stock-low':'stock-ok';
+    return `<div class="rupt-item" style="${r.rupture?'background:#fff8f8':''}">
+      <input type="checkbox" class="rupt-check" ${r.rupture?'checked':''} onchange="toggleRupture(${p.idx},this.checked)">
+      <span style="font-size:12px;color:var(--text)">${p.nom}</span>
+      <span class="cat-badge">${p.cat}</span>
+      <span class="rupt-stock ${stockClass}">${p.stock} unités</span>
+      <input type="date" class="rupt-date" value="${r.dateRupture||''}" style="height:26px;padding:0 6px;border-radius:var(--r);border:1px solid var(--border);font-size:11px;font-family:var(--mono);${r.rupture?'':'opacity:.3;pointer-events:none'}" onchange="setDateRupture(${p.idx},this.value)">
+    </div>`;
+  }).join('');
+}
+ 
+function setRuptFilter(cat){
+  RUPT_FILTER=cat;
+  renderRuptures();
+}
+ 
+function toggleRupture(idx,checked){
+  if(!RUPTURES[idx])RUPTURES[idx]={rupture:false,dateRupture:null};
+  RUPTURES[idx].rupture=checked;
+  if(checked&&!RUPTURES[idx].dateRupture){
+    var today=new Date().toISOString().slice(0,10);
+    RUPTURES[idx].dateRupture=today;
+  }
+  if(!checked)RUPTURES[idx].dateRupture=null;
+  localStorage.setItem('wpf-ruptures',JSON.stringify(RUPTURES));
+  renderRuptures();
+}
+ 
+function setDateRupture(idx,date){
+  if(!RUPTURES[idx])RUPTURES[idx]={rupture:true,dateRupture:null};
+  RUPTURES[idx].dateRupture=date;
+  localStorage.setItem('wpf-ruptures',JSON.stringify(RUPTURES));
+}
+ 
+// ══════════════════════════════════════════════
 //  PDF
 // ══════════════════════════════════════════════
 function genPDF(type){
@@ -749,6 +872,68 @@ function genPDF(type){
   kCard(10,yL,85,20,'NOTE MOY.',fNote(d.note),CYAN);kCard(102,yL,85,20,'AVIS REÇUS',fN(d.nbAvis),CYAN);kCard(194,yL,85,20,'RÉCLAMATIONS',fN(d.recla),WHITE);yL+=28;
   tPDF(10,yL,277,['Indicateur',periode,colN1,'Évolution'],[['Note moyenne (/5)',fNote(d.note),dN1?fNote(dN1.note):'--',ev2(d.note,dN1?.note)],['Avis reçus',fN(d.nbAvis),dN1?fN(dN1.nbAvis):'--',ev2(d.nbAvis,dN1?.nbAvis)],['Réclamations',fN(d.recla),dN1?fN(dN1.recla):'--','--']]);
   sf(7,'normal');sT([100,120,140]);doc.text('Wave Protect France · www.wave-protect.fr · Certifié NEXIO / COFRAC',148,204,{align:'center'});
+ 
+  // ── PAGE SYNTHÈSE 1 PAGE ──
+  doc.addPage();sF(NAVY);doc.rect(0,0,297,210,'F');
+  // Header
+  sF(DK);doc.rect(0,0,297,14,'F');sf(8,'bold');sT(CYAN);doc.text('WAVE PROTECT FRANCE',10,9.5);sf(8,'normal');sT([180,195,210]);doc.text('SYNTHÈSE — '+periode,287,9.5,{align:'right'});
+  // Titre
+  sf(16,'bold');sT(WHITE);doc.text('SYNTHÈSE '+(type==='hebdo'?'HEBDOMADAIRE':'MENSUELLE'),148,30,{align:'center'});
+  sf(9,'normal');sT([180,195,210]);doc.text(periode+(dN1?' · vs '+colN1:''),148,39,{align:'center'});
+  sF(CYAN);doc.rect(74,43,150,0.6,'F');
+  // 6 KPI cards principales
+  var cards=[
+    ['CA NET',fE(d.caNet),ev2(d.caNet,dN1?.caNet),CYAN],
+    ['COMMANDES',fN(d.nbCmds),ev2(d.nbCmds,dN1?.nbCmds),CYAN],
+    ['PANIER MOY.',fE(d.panier),ev2(d.panier,dN1?.panier),CYAN],
+    ['SESSIONS',fN(d.sessions),ev2(d.sessions,dN1?.sessions),[180,195,210]],
+    ['TX CONV.',fP(d.txConv),ev2(d.txConv,dN1?.txConv),[180,195,210]],
+    ['NOTE MOY.',fNote(d.note),ev2(d.note,dN1?.note),CYAN],
+  ];
+  var cw2=277/3,rh2=38;
+  cards.forEach((c,i)=>{
+    var cx=10+(i%3)*cw2, cy=50+Math.floor(i/3)*rh2;
+    sF(DK);doc.roundedRect(cx,cy,cw2-4,rh2-4,3,3,'F');
+    sf(8,'normal');sT(c[3]);doc.text(c[0],cx+(cw2-4)/2,cy+9,{align:'center'});
+    sf(14,'bold');sT(WHITE);doc.text(c[1],cx+(cw2-4)/2,cy+22,{align:'center'});
+    sf(8,'normal');sT(c[2]===('--')||!c[2]?[120,130,145]:c[2].startsWith('+')?[0,200,130]:[220,80,80]);
+    doc.text(c[2]||'--',cx+(cw2-4)/2,cy+31,{align:'center'});
+  });
+  // Tableau objectif
+  var yS=136;
+  if(d.caObj){
+    sF(DK);doc.rect(10,yS,277,8,'F');sf(7,'bold');sT(CYAN);doc.text('OBJECTIF CA',10+277/4,yS+5.5,{align:'center'});doc.text('ATTEINTE',10+277*3/4,yS+5.5,{align:'center'});
+    sF(DK2);doc.rect(10,yS+8,277,8,'F');sf(9,'bold');sT(WHITE);
+    doc.text(fE(d.caObj),10+277/4,yS+14,{align:'center'});
+    var att=d.caNet&&d.caObj?(d.caNet/d.caObj*100).toFixed(1)+' %':'--';
+    doc.text(att,10+277*3/4,yS+14,{align:'center'});
+    yS+=22;
+  }
+  // Ruptures
+  var enRupture=Object.keys(RUPTURES).filter(i=>RUPTURES[i].rupture);
+  if(enRupture.length){
+    sf(8,'bold');sT(CYAN);doc.text('⚠ RUPTURES EN COURS ('+enRupture.length+')',10,yS+8);yS+=14;
+    enRupture.slice(0,5).forEach((idx,i)=>{
+      var p=PRODUITS_CATALOGUE[idx];var r=RUPTURES[idx];
+      sF(i%2===0?[25,55,85]:DK);doc.rect(10,yS,277,7,'F');
+      sf(7,'normal');sT(WHITE);
+      doc.text((p?p.nom:'Produit '+idx).substring(0,55),12,yS+5);
+      doc.text(r.dateRupture?'Depuis '+r.dateRupture:'--',230,yS+5,{align:'right'});
+      yS+=7;
+    });
+    if(enRupture.length>5){sf(7,'normal');sT([180,195,210]);doc.text('... et '+(enRupture.length-5)+' autre(s)',12,yS+4);yS+=8;}
+  }
+  // Commentaire
+  if(type==='hebdo'&&d.commentaire){
+    yS+=4;sf(8,'bold');sT(CYAN);doc.text('POINTS MARQUANTS',10,yS+6);yS+=10;
+    sF(DK);doc.roundedRect(10,yS,277,20,2,2,'F');
+    sf(8,'normal');sT(WHITE);
+    var lines=doc.splitTextToSize(d.commentaire,270);
+    lines.slice(0,2).forEach((l,i)=>doc.text(l,14,yS+7+i*6));
+    yS+=24;
+  }
+  sf(7,'normal');sT([100,120,140]);doc.text('Wave Protect France · www.wave-protect.fr · Certifié NEXIO / COFRAC',148,204,{align:'center'});
+ 
   doc.save(nomFichier);toast('PDF téléchargé ✓');
 }
  
@@ -759,8 +944,10 @@ function genPDF(type){
   loadLocal();
   initSupabase();
   loadAllFromSupabase();
+  loadRuptures();
   buildSemSel();buildMoisSel();
 })();
 </script>
 </body>
 </html>
+ 
