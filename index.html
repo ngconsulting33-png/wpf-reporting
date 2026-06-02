@@ -6,7 +6,7 @@
 <title>WPF — Reporting Shopify</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+ 
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#0B1F3A;--navy2:#122438;--navy3:#1a3050;--cyan:#00C2D4;--cyan2:#00a8b8;--orange:#FF8015;--bg:#f4f6f9;--bg2:#fff;--border:#e2e6ed;--text:#1a2332;--text2:#5a6a7e;--text3:#8fa0b4;--green:#1aab6d;--red:#e03e3e;--font:'DM Sans',system-ui,sans-serif;--mono:'DM Mono',monospace;--r:8px;--rl:12px}
@@ -290,11 +290,32 @@ CREATE POLICY "Modification publique" ON semaines
  
 <script>
 // ══════════════════════════════════════════════
-//  CONFIG & SUPABASE
+//  CONFIG & SUPABASE (fetch natif - pas de CDN)
 // ══════════════════════════════════════════════
-var supabase = null;
+var SBURL = '';
+var SBKEY = '';
 var DB = {};
 var MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+ 
+// Appel REST Supabase natif
+async function sbFetch(method, path, body) {
+  var res = await fetch(SBURL + '/rest/v1/' + path, {
+    method: method,
+    headers: {
+      'apikey': SBKEY,
+      'Authorization': 'Bearer ' + SBKEY,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : 'return=minimal'
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok) {
+    var err = await res.text();
+    throw new Error(err);
+  }
+  var txt = await res.text();
+  return txt ? JSON.parse(txt) : [];
+}
  
 var SEED = {
   '2026-S21':{key:'2026-S21',sem:21,annee:2026,mois:5,moisNom:'Mai',caNet:220.5,caBrut:213,caObj:1500,nbCmds:3,panier:71,annulees:0,sessions:232,visiteurs:125,txConv:3.87,txRebond:74.13,nvxCl:4,txRec:20,newsletter:3,b2bActifs:0,b2bCmds:0,b2bCA:0,budgetPub:0,roas:0,meta:0,google:0,tiktok:0,note:0,nbAvis:0,recla:0,nps:null,produits:[{ref:'WP12',nom:'Accessoire Sport WP12',cat:'Bracelet',u:3,ca:204},{ref:'WP1',nom:'Bracelet WP1 — Protection Initiation',cat:'Bracelet',u:2,ca:134.5},{ref:'WP1',nom:'Clean Water',cat:'Bracelet',u:2,ca:106}]},
@@ -312,7 +333,6 @@ function initSupabase(){
   var c=getCfg();
   if(!c.url||!c.key){setSyncState('err','Non configuré');showNoBanner(true);return false;}
   try{
-    var lib=window.supabase;supabase=lib.createClient(c.url,c.key);
     setSyncState('ok','Connecté');showNoBanner(false);return true;
   }catch(e){setSyncState('err','Erreur config');return false;}
 }
@@ -333,10 +353,9 @@ function sauvegarderConfig(){
   if(!url||!key){showCfgMsg('error','Renseignez les deux champs.');return;}
   localStorage.setItem('wpf-sb-url',url);
   localStorage.setItem('wpf-sb-key',key);
-  if(initSupabase()){
-    showCfgMsg('success','Connecté ! Chargement des données…');
-    loadAllFromSupabase();
-  }
+  SBURL=url; SBKEY=key;
+  showCfgMsg('success','Connecté ! Chargement des données…');
+  loadAllFromSupabase();
 }
  
 async function testerConnexion(){
@@ -344,9 +363,8 @@ async function testerConnexion(){
   var key=document.getElementById('cfg-key').value.trim();
   if(!url||!key){showCfgMsg('error','Renseignez les deux champs.');return;}
   try{
-    var lib2=window.supabase;var client=lib2.createClient(url,key);
-    var {error}=await client.from('semaines').select('id').limit(1);
-    if(error)throw error;
+    var res=await fetch(url+'/rest/v1/semaines?select=id&limit=1',{headers:{'apikey':key,'Authorization':'Bearer '+key}});
+    if(!res.ok)throw new Error('HTTP '+res.status);
     showCfgMsg('success','✓ Connexion réussie ! Table "semaines" trouvée.');
   }catch(e){showCfgMsg('error','✗ Erreur : '+(e.message||JSON.stringify(e)));}
 }
@@ -362,14 +380,12 @@ function showCfgMsg(type,msg){
 //  SUPABASE CRUD
 // ══════════════════════════════════════════════
 async function loadAllFromSupabase(){
-  if(!supabase){loadLocal();return;}
+  if(!SBURL||!SBKEY){loadLocal();return;}
   setSyncState('loading','Chargement…');
   try{
-    var {data,error}=await supabase.from('semaines').select('*').order('cle');
-    if(error)throw error;
+    var data=await sbFetch('GET','semaines?select=*&order=cle');
     DB={};
     data.forEach(row=>{DB[row.cle]=row.donnees;});
-    // Seed S21/S22 si pas encore en base
     var toInsert=[];
     Object.keys(SEED).forEach(k=>{if(!DB[k])toInsert.push(k);});
     for(var k of toInsert){await upsertToSupabase(SEED[k]);DB[k]=SEED[k];}
@@ -379,23 +395,22 @@ async function loadAllFromSupabase(){
   }catch(e){
     setSyncState('err','Hors ligne');
     loadLocal();
-    toast('Supabase inaccessible — données locales chargées');
+    toast('Erreur Supabase : '+e.message);
   }
 }
  
 async function upsertToSupabase(d){
-  if(!supabase)return false;
-  var {error}=await supabase.from('semaines').upsert({
+  if(!SBURL||!SBKEY)return false;
+  await sbFetch('POST','semaines',{
     cle:d.key, sem:d.sem, annee:d.annee, mois:d.mois, mois_nom:d.moisNom,
     donnees:d, updated_at:new Date().toISOString()
-  },{onConflict:'cle'});
-  if(error)throw error;
+  });
   return true;
 }
  
 async function deleteFromSupabase(key){
-  if(!supabase)return;
-  await supabase.from('semaines').delete().eq('cle',key);
+  if(!SBURL||!SBKEY)return;
+  await sbFetch('DELETE','semaines?cle=eq.'+encodeURIComponent(key));
 }
  
 // ══════════════════════════════════════════════
@@ -518,7 +533,7 @@ async function sauvegarder(){
   d.mois=date.getMonth()+1;d.moisNom=MOIS[date.getMonth()];
   DB[k]=d;saveLocal();
   try{
-    if(supabase){await upsertToSupabase(d);toast('S'+s+'/'+a+' sauvegardée et synchronisée ✓');}
+    if(SBURL&&SBKEY){await upsertToSupabase(d);toast('S'+s+'/'+a+' sauvegardée et synchronisée ✓');}
     else{toast('Sauvegardé localement (Supabase non configuré)');}
   }catch(e){toast('Sauvegardé localement — sync échouée');}
   btn.innerHTML='<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>Sauvegarder';
@@ -742,12 +757,10 @@ function genPDF(type){
 // ══════════════════════════════════════════════
 (function init(){
   loadLocal();
-  if(initSupabase()){
-    loadAllFromSupabase();
-  }
+  initSupabase();
+  loadAllFromSupabase();
   buildSemSel();buildMoisSel();
 })();
 </script>
 </body>
 </html>
- 
