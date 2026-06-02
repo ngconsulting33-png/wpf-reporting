@@ -910,7 +910,7 @@ function genPDF(type){
   sF(CYAN);doc.rect(99,111,100,0.6,'F');
   sf(8,'normal');sT([180,195,210]);doc.text('Protection Ondes Electromagnétiques · Certifié NEXIO / COFRAC',148,120,{align:'center'});
   doc.text('Période : '+periode,148,129,{align:'center'});
-  try{doc.addImage(LOGO_B64,'JPEG',114,148,68,68);}catch(e){}
+  try{doc.addImage(LOGO_B64,'JPEG',129,148,38,38);}catch(e){}
   sf(9,'bold');sT(CYAN);doc.text('www.wave-protect.fr',148,185,{align:'center'});
  
   var y=newPage("VENTES & CHIFFRE D'AFFAIRES",type==='hebdo'?'HEBDO':'MENSUEL');
@@ -935,7 +935,7 @@ function genPDF(type){
   sf(8,'bold');sT(CYAN);doc.text('WAVE PROTECT FRANCE',10,9.5);
   sf(8,'normal');sT([180,195,210]);doc.text('SYNTHÈSE — '+periode,287,9.5,{align:'right'});
   // Logo WPF
-  try{doc.addImage(LOGO_B64,'JPEG',10,18,28,28);}catch(e){}
+  try{doc.addImage(LOGO_B64,'JPEG',10,17,22,22);}catch(e){}
   // Titre à droite du logo
   sf(15,'bold');sT(WHITE);doc.text('SYNTHÈSE '+(type==='hebdo'?'HEBDOMADAIRE':'MENSUELLE'),148,27,{align:'center'});
   sf(9,'normal');sT([180,195,210]);doc.text(periode+(dN1?' · vs '+colN1:''),148,35,{align:'center'});
@@ -1001,7 +1001,7 @@ function genPDF(type){
   // Ruptures
   var enRupture=Object.keys(RUPTURES).filter(i=>RUPTURES[i]&&RUPTURES[i].rupture);
   if(enRupture.length){
-    sf(8,'bold');sT([255,128,21]);doc.text('⚠ RUPTURES EN COURS ('+enRupture.length+' produits)',10,yS+6);yS+=10;
+    sf(8,'bold');sT([255,128,21]);doc.text('! RUPTURES EN COURS ('+enRupture.length+' produits)',10,yS+6);yS+=10;
     var cols3=3,rw=277/cols3,rh3=6;
     enRupture.slice(0,12).forEach((idx,i)=>{
       var p=PRODUITS_CATALOGUE[parseInt(idx)];
