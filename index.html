@@ -6,6 +6,7 @@
 <title>WPF — Reporting Shopify</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
  
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -101,6 +102,9 @@ tr:hover td{background:#fafbfc}
 .filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .filter-btn{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--text2);transition:all .15s}
 .filter-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.chart-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--rl);padding:16px;margin-bottom:18px}
+.chart-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px}
+.chart-sub{font-size:11px;color:var(--text3);margin-left:8px;font-weight:400}
 </style>
 </head>
 <body>
@@ -271,7 +275,11 @@ CREATE POLICY "Modification publique" ON semaines
           <div class="sep"></div>
           <button class="btn cyan" onclick="genPDF('hebdo')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF</button>
         </div>
-        <div id="hebdo-content"></div>
+        <div class="chart-wrap" id="ca-chart-wrap" style="display:none">
+  <div class="chart-title">Évolution CA Net <span class="chart-sub">8 dernières semaines</span></div>
+  <canvas id="ca-chart" height="80"></canvas>
+</div>
+<div id="hebdo-content"></div>
       </div>
  
       <!-- MENSUEL -->
@@ -327,6 +335,7 @@ var SBURL = '';
 var SBKEY = '';
 var DB = {};
 var MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+var LOGO_B64 = 'data:image/jpeg;base64,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';
 var PRODUITS_CATALOGUE = [{"nom": "Aqua Clip WP1 | Broche anti-ondes waterproof 50m", "cat": "Broche", "stock": 23, "rupture": false, "dateRupture": null}, {"nom": "Pendentif anti-ondes WP3 — Protection électromagnétique en cuir", "cat": "Pendentif", "stock": 26, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Quadralinhos anti-ondes en liège naturel — Protection éco-responsable — WP1", "cat": "Bracelet", "stock": 15, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes homme en cuir Camel — WP1", "cat": "Bracelet", "stock": 17, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Toi & Moi", "cat": "Broche", "stock": 29, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Love You", "cat": "Broche", "stock": 36, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Love", "cat": "Broche", "stock": 45, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Arbre de vie", "cat": "Broche", "stock": 34, "rupture": false, "dateRupture": null}, {"nom": "Serre poignet Clean Water Protect — Détox électromagnétique nocturne", "cat": "Sport", "stock": 347, "rupture": false, "dateRupture": null}, {"nom": "Serre poignet anti-ondes training sport WP6", "cat": "Sport", "stock": 500, "rupture": false, "dateRupture": null}, {"nom": "Talonnettes Anti-Ondes WP2 - Protection EMF & Rééquilibrage Énergétique", "cat": "Semelle", "stock": 13, "rupture": false, "dateRupture": null}, {"nom": "Broche Blanche WP1  Tjrs au Taquet by Steve Savidan", "cat": "Broche", "stock": 200, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes homme en cuir Bleu — WP1", "cat": "Bracelet", "stock": 21, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes homme en cuir Noir — WP1", "cat": "Bracelet", "stock": 74, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes Homme en cuir Bleu marine — WP1", "cat": "Bracelet", "stock": 24, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Bleu Marine — WP1", "cat": "Bracelet", "stock": 35, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Fushia — WP1", "cat": "Bracelet", "stock": 21, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Camel — WP1", "cat": "Bracelet", "stock": 18, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Bleu Roi — WP1", "cat": "Bracelet", "stock": 24, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Bleu Roi — WP2", "cat": "Bracelet", "stock": 18, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Rose — WP1", "cat": "Bracelet", "stock": 12, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Camel — WP1", "cat": "Bracelet", "stock": 19, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Bleu roi — WP1", "cat": "Bracelet", "stock": 15, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Bleu roi — WP2", "cat": "Bracelet", "stock": 10, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manille anti-ondes femme en cuir Bleu marine — WP1", "cat": "Bracelet", "stock": 14, "rupture": false, "dateRupture": null}, {"nom": "Pendentif anti-ondes WP2 — Protection électromagnétique en cuir", "cat": "Pendentif", "stock": 569, "rupture": false, "dateRupture": null}, {"nom": "Pendentif anti-ondes WP2 — Protection électromagnétique en Liège", "cat": "Pendentif", "stock": 24, "rupture": false, "dateRupture": null}, {"nom": "Pendentif anti-ondes WP1 — Protection électromagnétique en Liège", "cat": "Pendentif", "stock": 21, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Bleu anti-ondes en liège naturel — Protection éco-responsable — WP1", "cat": "Bracelet", "stock": 14, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Noir anti-ondes en liège naturel — Protection éco-responsable — WP2", "cat": "Bracelet", "stock": 244, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Marron anti-ondes en liège naturel — Protection éco-responsable — WP1", "cat": "Bracelet", "stock": 16, "rupture": false, "dateRupture": null}, {"nom": "Bracelet Violet anti-ondes en liège naturel — Protection éco-responsable — WP1", "cat": "Bracelet", "stock": 49, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — Liberté", "cat": "Broche", "stock": 27, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — Visage", "cat": "Broche", "stock": 32, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — Arbre de vie", "cat": "Broche", "stock": 14, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — VTT", "cat": "Broche", "stock": 16, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes bleu WP1 — Protection électromagnétique — Football", "cat": "Broche", "stock": 33, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — VTT", "cat": "Broche", "stock": 42, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — Football", "cat": "Broche", "stock": 19, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — Rugby", "cat": "Broche", "stock": 9, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — Musicien", "cat": "Broche", "stock": 28, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes orange WP1 — Protection électromagnétique — Sprinter", "cat": "Broche", "stock": 14, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Liberté", "cat": "Broche", "stock": 29, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Arbre de vie", "cat": "Broche", "stock": 34, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Visage", "cat": "Broche", "stock": 32, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Fleur", "cat": "Broche", "stock": 17, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Danseuse", "cat": "Broche", "stock": 24, "rupture": false, "dateRupture": null}, {"nom": "Broche anti-ondes rose WP1 — Protection électromagnétique — Running", "cat": "Broche", "stock": 51, "rupture": false, "dateRupture": null}, {"nom": "Serre poignet anti-ondes training sport WP12", "cat": "Sport", "stock": 497, "rupture": false, "dateRupture": null}, {"nom": "Kit duo Nutriments + — Dynamisation énergétique des aliments", "cat": "Accessoire", "stock": 47, "rupture": false, "dateRupture": null}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Blanc — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet manille anti-ondes femme en cuir Blanc — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Visage", "cat": "Broche", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Danseuse", "cat": "Broche", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Broche anti-ondes blanche WP1 — Protection électromagnétique — Running", "cat": "Broche", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Protège-tibias Personnalisable anti-ondes WP10", "cat": "Sport", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet anti-ondes bébé WP1 - Protection EMF nourrisson 0-1 an", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet manille anti-ondes homme en cuir Noir — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet manille anti-ondes Homme en cuir Bleu marine — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet manchette anti-ondes Femme en cuir Fushia — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet manille anti-ondes femme en cuir Rose — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet manille anti-ondes femme en cuir Rouge — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet manille anti-ondes femme en cuir Camel — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet manille anti-ondes femme en cuir Noir — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet manille anti-ondes femme en cuir Bleu marine — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Pendentif anti-ondes WP3 — Protection électromagnétique en Liège", "cat": "Pendentif", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet Bleu anti-ondes en liège naturel — Protection éco-responsable — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet Marron anti-ondes en liège naturel — Protection éco-responsable — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet anti-ondes en liège naturel — Protection éco-responsable — WP1", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet anti-ondes en liège naturel — Protection éco-responsable — WP2", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Bracelet anti-ondes enfant WP1 - Protection EMF de 1 à 6 ans", "cat": "Bracelet", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Serre poignet anti-ondes training sport Steve Savidan — WP6", "cat": "Sport", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Serre poignet anti-ondes training sport Steve Savidan — WP12", "cat": "Sport", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Kit Footballeur Performance Steve Savidan", "cat": "Steve Savidan", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}, {"nom": "Serre poignet Clean Water Protect — Détox électromagnétique nocturne Steve Savidan", "cat": "Sport", "stock": 0, "rupture": true, "dateRupture": "2026-05-01"}];
  
 // Appel REST Supabase natif
@@ -602,7 +611,38 @@ function buildMoisSel(){
 // ══════════════════════════════════════════════
 //  RENDER HEBDO
 // ══════════════════════════════════════════════
+function renderChart(){
+  var ks=Object.keys(DB).sort();
+  var last8=ks.slice(-8);
+  if(last8.length<2){document.getElementById('ca-chart-wrap').style.display='none';return;}
+  document.getElementById('ca-chart-wrap').style.display='block';
+  var labels=last8.map(k=>k.replace('2026-',''));
+  var caData=last8.map(k=>DB[k].caNet||0);
+  var objData=last8.map(k=>DB[k].caObj||2500);
+  var ctx=document.getElementById('ca-chart').getContext('2d');
+  if(window._caChart)window._caChart.destroy();
+  window._caChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:labels,
+      datasets:[
+        {label:'CA Net (€)',data:caData,borderColor:'#00C2D4',backgroundColor:'rgba(0,194,212,.1)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#00C2D4',tension:.3,fill:true},
+        {label:'Objectif (€)',data:objData,borderColor:'#FF8015',backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,4],pointRadius:0,tension:0}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      plugins:{legend:{labels:{font:{size:11},color:'#5a6a7e'}},tooltip:{callbacks:{label:ctx=>(ctx.dataset.label+' : '+ctx.parsed.y.toLocaleString('fr-FR',{minimumFractionDigits:2})+' €')}}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10},color:'#8fa0b4'}},
+        y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10},color:'#8fa0b4',callback:v=>v.toLocaleString('fr-FR')+'€'},beginAtZero:true}
+      }
+    }
+  });
+}
+ 
 function renderHebdo(){
+  renderChart();
   var key=document.getElementById('h-sel').value,d=DB[key],el=document.getElementById('hebdo-content');
   if(!d){el.innerHTML='<div class="empty">Aucune donnée pour cette semaine.</div>';return;}
   var ks=Object.keys(DB).sort(),idx=ks.indexOf(key),dN1=idx>0?DB[ks[idx-1]]:null;
@@ -830,6 +870,20 @@ function genPDF(type){
   function sF(c){doc.setFillColor(c[0],c[1],c[2]);}function sT(c){doc.setTextColor(c[0],c[1],c[2]);}
   function sf(sz,st){doc.setFontSize(sz);doc.setFont('helvetica',st||'normal');}
   function ev2(a,b){if(a===null||b===null||b===0||a===undefined||b===undefined)return '--';var e=((a-b)/Math.abs(b))*100;return(e>=0?'+':'')+e.toFixed(1)+' %';}
+  // Fonctions format PDF (sans espace fine)
+  function pfFmt(v,dec){
+    if(v===null||v===undefined)return '--';
+    var n=parseFloat(v);if(isNaN(n))return '--';
+    var s=n.toFixed(dec!==undefined?dec:2);
+    var parts=s.split('.');
+    parts[0]=parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+    return dec===0||dec===undefined&&Number.isInteger(n)?parts[0]:(parts[0]+','+parts[1]);
+  }
+  function pfE(v,d){return v!==null&&v!==undefined?pfFmt(v,d!==undefined?d:2)+' EUR':'--';}
+  function pfN(v){return v!==null&&v!==undefined?pfFmt(v,0):'--';}
+  function pfP(v){return v!==null&&v!==undefined?pfFmt(v,1)+' %':'--';}
+  function pfX(v){return v!==null&&v!==undefined?pfFmt(v,2)+'x':'--';}
+  function pfNote(v){return v!==null&&v!==undefined&&v>0?pfFmt(v,1)+'/5':'--';}
   function newPage(titre,badge){doc.addPage();sF(NAVY);doc.rect(0,0,297,210,'F');sF(DK);doc.rect(0,0,297,14,'F');sf(8,'bold');sT(CYAN);doc.text('WAVE PROTECT FRANCE',10,9.5);sf(8,'normal');sT([180,195,210]);doc.text(badge,287,9.5,{align:'right'});sf(13,'bold');sT(WHITE);doc.text(titre,10,26);sF(CYAN);doc.rect(10,29,60,0.7,'F');return 38;}
   function kCard(x,y,w,h,lbl,val,col){sF(DK);doc.roundedRect(x,y,w,h,2,2,'F');sf(7,'normal');sT(col||CYAN);doc.text(lbl.toUpperCase(),x+w/2,y+6,{align:'center'});sf(11,'bold');sT(WHITE);doc.text(String(val),x+w/2,y+h-4,{align:'center'});}
   function tPDF(x,y,w,hdrs,rows){var cw=w/hdrs.length,rh=8;sF(DK);doc.rect(x,y,w,rh,'F');sf(7,'bold');sT(CYAN);hdrs.forEach((h,i)=>doc.text(h,x+cw*i+cw/2,y+5.5,{align:'center'}));rows.forEach((row,r)=>{sF(r%2===0?DK2:DK);doc.rect(x,y+rh*(r+1),w,rh,'F');sf(7,'normal');sT(WHITE);row.forEach((c,i)=>doc.text(String(c===null||c===undefined?'--':c),x+cw*i+cw/2,y+rh*(r+1)+5.5,{align:'center'}));});return y+rh*(rows.length+1)+5;}
@@ -856,81 +910,121 @@ function genPDF(type){
   sF(CYAN);doc.rect(99,111,100,0.6,'F');
   sf(8,'normal');sT([180,195,210]);doc.text('Protection Ondes Electromagnétiques · Certifié NEXIO / COFRAC',148,120,{align:'center'});
   doc.text('Période : '+periode,148,129,{align:'center'});
-  sf(9,'bold');sT(CYAN);doc.text('www.wave-protect.fr',148,142,{align:'center'});
+  try{doc.addImage(LOGO_B64,'JPEG',114,148,68,68);}catch(e){}
+  sf(9,'bold');sT(CYAN);doc.text('www.wave-protect.fr',148,185,{align:'center'});
  
   var y=newPage("VENTES & CHIFFRE D'AFFAIRES",type==='hebdo'?'HEBDO':'MENSUEL');
-  kCard(10,y,85,20,'CA NET',fE(d.caNet),CYAN);kCard(102,y,85,20,'COMMANDES',fN(d.nbCmds),CYAN);kCard(194,y,85,20,'PANIER MOY.',fE(d.panier),CYAN);y+=26;
-  y=tPDF(10,y,277,['Indicateur',periode,colN1,'Évolution'],[['CA Net (€)',fE(d.caNet),dN1?fE(dN1.caNet):'--',ev2(d.caNet,dN1?.caNet)],['Commandes',fN(d.nbCmds),dN1?fN(dN1.nbCmds):'--',ev2(d.nbCmds,dN1?.nbCmds)],['Panier moyen (€)',fE(d.panier),dN1?fE(dN1.panier):'--',ev2(d.panier,dN1?.panier)]]);
+  kCard(10,y,85,20,'CA NET',pfE(d.caNet),CYAN);kCard(102,y,85,20,'COMMANDES',pfN(d.nbCmds),CYAN);kCard(194,y,85,20,'PANIER MOY.',pfE(d.panier),CYAN);y+=26;
+  y=tPDF(10,y,277,['Indicateur',periode,colN1,'Évolution'],[['CA Net (€)',pfE(d.caNet),dN1?pfE(dN1.caNet):'--',ev2(d.caNet,dN1?.caNet)],['Commandes',pfN(d.nbCmds),dN1?pfN(dN1.nbCmds):'--',ev2(d.nbCmds,dN1?.nbCmds)],['Panier moyen (€)',pfE(d.panier),dN1?pfE(dN1.panier):'--',ev2(d.panier,dN1?.panier)]]);
   var y2=newPage('TRAFIC & CLIENTS',type==='hebdo'?'HEBDO':'MENSUEL');
-  kCard(10,y2,65,18,'SESSIONS',fN(d.sessions),CYAN);kCard(80,y2,65,18,'TX CONV.',fP(d.txConv),CYAN);kCard(150,y2,65,18,'NVX CLIENTS',fN(d.nvxCl),CYAN);kCard(220,y2,67,18,'RÉCURRENCE',fP(d.txRec),CYAN);y2+=24;
-  tPDF(10,y2,277,['Indicateur',periode,colN1,'Évolution'],[['Sessions',fN(d.sessions),dN1?fN(dN1.sessions):'--',ev2(d.sessions,dN1?.sessions)],['Taux conversion (%)',fP(d.txConv),dN1?fP(dN1.txConv):'--',ev2(d.txConv,dN1?.txConv)],['Nvx clients',fN(d.nvxCl),dN1?fN(dN1.nvxCl):'--',ev2(d.nvxCl,dN1?.nvxCl)],['Taux récurrence (%)',fP(d.txRec),dN1?fP(dN1.txRec):'--',ev2(d.txRec,dN1?.txRec)]]);
+  kCard(10,y2,65,18,'SESSIONS',pfN(d.sessions),CYAN);kCard(80,y2,65,18,'TX CONV.',pfP(d.txConv),CYAN);kCard(150,y2,65,18,'NVX CLIENTS',pfN(d.nvxCl),CYAN);kCard(220,y2,67,18,'RÉCURRENCE',pfP(d.txRec),CYAN);y2+=24;
+  tPDF(10,y2,277,['Indicateur',periode,colN1,'Évolution'],[['Sessions',pfN(d.sessions),dN1?pfN(dN1.sessions):'--',ev2(d.sessions,dN1?.sessions)],['Taux conversion (%)',pfP(d.txConv),dN1?pfP(dN1.txConv):'--',ev2(d.txConv,dN1?.txConv)],['Nvx clients',pfN(d.nvxCl),dN1?pfN(dN1.nvxCl):'--',ev2(d.nvxCl,dN1?.nvxCl)],['Taux récurrence (%)',pfP(d.txRec),dN1?pfP(dN1.txRec):'--',ev2(d.txRec,dN1?.txRec)]]);
   var y3=newPage('B2B & PUBLICITÉ',type==='hebdo'?'HEBDO':'MENSUEL');
-  kCard(10,y3,85,18,'B2B ACTIFS',fN(d.b2bActifs),[255,160,50]);kCard(102,y3,85,18,'CA B2B',fE(d.b2bCA),[255,160,50]);kCard(194,y3,85,18,'BUDGET PUB',fE(d.budgetPub),WHITE);y3+=24;
-  tPDF(10,y3,277,['Plateforme',periode,colN1,'Évolution'],[['Meta Ads',fE(d.meta),dN1?fE(dN1.meta):'--',ev2(d.meta,dN1?.meta)],['Google Ads',fE(d.google),dN1?fE(dN1.google):'--',ev2(d.google,dN1?.google)],['TikTok Ads',fE(d.tiktok),dN1?fE(dN1.tiktok):'--',ev2(d.tiktok,dN1?.tiktok)]]);
-  if(type==='hebdo'&&d.produits?.filter(p=>p.nom).length){var y4=newPage('TOP PRODUITS','HEBDO');tPDF(10,y4,277,['#','Référence','Produit','Catégorie','Unités','CA (€)'],d.produits.filter(p=>p.nom).map((p,i)=>[i+1,p.ref||'--',p.nom,p.cat||'--',fN(p.u),fE(p.ca)]));}
+  kCard(10,y3,85,18,'B2B ACTIFS',pfN(d.b2bActifs),[255,160,50]);kCard(102,y3,85,18,'CA B2B',pfE(d.b2bCA),[255,160,50]);kCard(194,y3,85,18,'BUDGET PUB',pfE(d.budgetPub),WHITE);y3+=24;
+  tPDF(10,y3,277,['Plateforme',periode,colN1,'Évolution'],[['Meta Ads',pfE(d.meta),dN1?pfE(dN1.meta):'--',ev2(d.meta,dN1?.meta)],['Google Ads',pfE(d.google),dN1?pfE(dN1.google):'--',ev2(d.google,dN1?.google)],['TikTok Ads',pfE(d.tiktok),dN1?pfE(dN1.tiktok):'--',ev2(d.tiktok,dN1?.tiktok)]]);
+  if(type==='hebdo'&&d.produits?.filter(p=>p.nom).length){var y4=newPage('TOP PRODUITS','HEBDO');tPDF(10,y4,277,['#','Référence','Produit','Catégorie','Unités','CA (€)'],d.produits.filter(p=>p.nom).map((p,i)=>[i+1,p.ref||'--',p.nom,p.cat||'--',pfN(p.u),pfE(p.ca)]));}
   var yL=newPage('SATISFACTION CLIENT',type==='hebdo'?'HEBDO':'MENSUEL');
-  kCard(10,yL,85,20,'NOTE MOY.',fNote(d.note),CYAN);kCard(102,yL,85,20,'AVIS REÇUS',fN(d.nbAvis),CYAN);kCard(194,yL,85,20,'RÉCLAMATIONS',fN(d.recla),WHITE);yL+=28;
-  tPDF(10,yL,277,['Indicateur',periode,colN1,'Évolution'],[['Note moyenne (/5)',fNote(d.note),dN1?fNote(dN1.note):'--',ev2(d.note,dN1?.note)],['Avis reçus',fN(d.nbAvis),dN1?fN(dN1.nbAvis):'--',ev2(d.nbAvis,dN1?.nbAvis)],['Réclamations',fN(d.recla),dN1?fN(dN1.recla):'--','--']]);
+  kCard(10,yL,85,20,'NOTE MOY.',pfNote(d.note),CYAN);kCard(102,yL,85,20,'AVIS REÇUS',pfN(d.nbAvis),CYAN);kCard(194,yL,85,20,'RÉCLAMATIONS',pfN(d.recla),WHITE);yL+=28;
+  tPDF(10,yL,277,['Indicateur',periode,colN1,'Évolution'],[['Note moyenne (/5)',pfNote(d.note),dN1?pfNote(dN1.note):'--',ev2(d.note,dN1?.note)],['Avis reçus',pfN(d.nbAvis),dN1?pfN(dN1.nbAvis):'--',ev2(d.nbAvis,dN1?.nbAvis)],['Réclamations',pfN(d.recla),dN1?pfN(dN1.recla):'--','--']]);
   sf(7,'normal');sT([100,120,140]);doc.text('Wave Protect France · www.wave-protect.fr · Certifié NEXIO / COFRAC',148,204,{align:'center'});
  
   // ── PAGE SYNTHÈSE 1 PAGE ──
   doc.addPage();sF(NAVY);doc.rect(0,0,297,210,'F');
-  // Header
-  sF(DK);doc.rect(0,0,297,14,'F');sf(8,'bold');sT(CYAN);doc.text('WAVE PROTECT FRANCE',10,9.5);sf(8,'normal');sT([180,195,210]);doc.text('SYNTHÈSE — '+periode,287,9.5,{align:'right'});
-  // Titre
-  sf(16,'bold');sT(WHITE);doc.text('SYNTHÈSE '+(type==='hebdo'?'HEBDOMADAIRE':'MENSUELLE'),148,30,{align:'center'});
-  sf(9,'normal');sT([180,195,210]);doc.text(periode+(dN1?' · vs '+colN1:''),148,39,{align:'center'});
-  sF(CYAN);doc.rect(74,43,150,0.6,'F');
-  // 6 KPI cards principales
+  // Header navy
+  sF(DK);doc.rect(0,0,297,14,'F');
+  sf(8,'bold');sT(CYAN);doc.text('WAVE PROTECT FRANCE',10,9.5);
+  sf(8,'normal');sT([180,195,210]);doc.text('SYNTHÈSE — '+periode,287,9.5,{align:'right'});
+  // Logo WPF
+  try{doc.addImage(LOGO_B64,'JPEG',10,18,28,28);}catch(e){}
+  // Titre à droite du logo
+  sf(15,'bold');sT(WHITE);doc.text('SYNTHÈSE '+(type==='hebdo'?'HEBDOMADAIRE':'MENSUELLE'),148,27,{align:'center'});
+  sf(9,'normal');sT([180,195,210]);doc.text(periode+(dN1?' · vs '+colN1:''),148,35,{align:'center'});
+  sF(CYAN);doc.rect(44,39,240,0.6,'F');
+  // 6 KPI cards sur 2 lignes x 3
   var cards=[
-    ['CA NET',fE(d.caNet),ev2(d.caNet,dN1?.caNet),CYAN],
-    ['COMMANDES',fN(d.nbCmds),ev2(d.nbCmds,dN1?.nbCmds),CYAN],
-    ['PANIER MOY.',fE(d.panier),ev2(d.panier,dN1?.panier),CYAN],
-    ['SESSIONS',fN(d.sessions),ev2(d.sessions,dN1?.sessions),[180,195,210]],
-    ['TX CONV.',fP(d.txConv),ev2(d.txConv,dN1?.txConv),[180,195,210]],
-    ['NOTE MOY.',fNote(d.note),ev2(d.note,dN1?.note),CYAN],
+    ['CA NET',pfE(d.caNet),ev2(d.caNet,dN1?.caNet),CYAN],
+    ['COMMANDES',pfN(d.nbCmds),ev2(d.nbCmds,dN1?.nbCmds),CYAN],
+    ['PANIER MOY.',pfE(d.panier),ev2(d.panier,dN1?.panier),CYAN],
+    ['SESSIONS',pfN(d.sessions),ev2(d.sessions,dN1?.sessions),[0,194,212]],
+    ['TX CONV.',pfP(d.txConv),ev2(d.txConv,dN1?.txConv),[0,194,212]],
+    ['NOTE MOY.',pfNote(d.note),ev2(d.note,dN1?.note),[0,194,212]],
   ];
-  var cw2=277/3,rh2=38;
+  var cw2=91,rh2=36,xStart=10;
   cards.forEach((c,i)=>{
-    var cx=10+(i%3)*cw2, cy=50+Math.floor(i/3)*rh2;
-    sF(DK);doc.roundedRect(cx,cy,cw2-4,rh2-4,3,3,'F');
-    sf(8,'normal');sT(c[3]);doc.text(c[0],cx+(cw2-4)/2,cy+9,{align:'center'});
-    sf(14,'bold');sT(WHITE);doc.text(c[1],cx+(cw2-4)/2,cy+22,{align:'center'});
-    sf(8,'normal');sT(c[2]===('--')||!c[2]?[120,130,145]:c[2].startsWith('+')?[0,200,130]:[220,80,80]);
-    doc.text(c[2]||'--',cx+(cw2-4)/2,cy+31,{align:'center'});
+    var cx=xStart+(i%3)*(cw2+2),cy=43+Math.floor(i/3)*rh2;
+    sF(DK);doc.roundedRect(cx,cy,cw2,rh2-3,2,2,'F');
+    sf(7,'normal');sT(c[3]);doc.text(c[0],cx+cw2/2,cy+7,{align:'center'});
+    sf(13,'bold');sT(WHITE);doc.text(c[1],cx+cw2/2,cy+19,{align:'center'});
+    var evo=c[2];var evoColor=(!evo||evo==='--')?[120,130,145]:evo.startsWith('+')?[0,200,130]:[220,80,80];
+    sf(8,'normal');sT(evoColor);doc.text(evo||'--',cx+cw2/2,cy+28,{align:'center'});
   });
-  // Tableau objectif
-  var yS=136;
-  if(d.caObj){
-    sF(DK);doc.rect(10,yS,277,8,'F');sf(7,'bold');sT(CYAN);doc.text('OBJECTIF CA',10+277/4,yS+5.5,{align:'center'});doc.text('ATTEINTE',10+277*3/4,yS+5.5,{align:'center'});
-    sF(DK2);doc.rect(10,yS+8,277,8,'F');sf(9,'bold');sT(WHITE);
-    doc.text(fE(d.caObj),10+277/4,yS+14,{align:'center'});
-    var att=d.caNet&&d.caObj?(d.caNet/d.caObj*100).toFixed(1)+' %':'--';
-    doc.text(att,10+277*3/4,yS+14,{align:'center'});
+  // Objectif + barre de progression
+  var yS=116;
+  if(d.caObj&&d.caNet){
+    var pct=Math.min(d.caNet/d.caObj,1);
+    sf(8,'bold');sT(CYAN);doc.text('OBJECTIF HEBDOMADAIRE',10,yS);
+    sf(8,'normal');sT([180,195,210]);doc.text(pfE(d.caNet)+' / '+pfE(d.caObj)+' — '+(pct*100).toFixed(1)+' %',10,yS+7);
+    // Barre
+    sF([30,60,90]);doc.roundedRect(10,yS+10,277,6,2,2,'F');
+    var barW=Math.max(pct*277,4);
+    sF(pct>=1?[0,200,130]:pct>=0.5?CYAN:[255,128,21]);
+    doc.roundedRect(10,yS+10,barW,6,2,2,'F');
     yS+=22;
   }
-  // Ruptures
-  var enRupture=Object.keys(RUPTURES).filter(i=>RUPTURES[i].rupture);
-  if(enRupture.length){
-    sf(8,'bold');sT(CYAN);doc.text('⚠ RUPTURES EN COURS ('+enRupture.length+')',10,yS+8);yS+=14;
-    enRupture.slice(0,5).forEach((idx,i)=>{
-      var p=PRODUITS_CATALOGUE[idx];var r=RUPTURES[idx];
-      sF(i%2===0?[25,55,85]:DK);doc.rect(10,yS,277,7,'F');
-      sf(7,'normal');sT(WHITE);
-      doc.text((p?p.nom:'Produit '+idx).substring(0,55),12,yS+5);
-      doc.text(r.dateRupture?'Depuis '+r.dateRupture:'--',230,yS+5,{align:'right'});
-      yS+=7;
+  // Graphique CA 8 semaines (dessiné manuellement en PDF)
+  var ks8=Object.keys(DB).sort().slice(-8);
+  if(ks8.length>=1){
+    sf(8,'bold');sT(CYAN);doc.text('ÉVOLUTION CA NET — 8 DERNIÈRES SEMAINES',10,yS);yS+=4;
+    var gx=10,gy=yS,gw=277,gh=28;
+    sF([14,38,62]);doc.rect(gx,gy,gw,gh,'F');
+    var vals=ks8.map(k=>DB[k].caNet||0);
+    var maxV=Math.max(...vals,1);
+    var minV=Math.min(...vals,0);
+    var range=maxV-minV||1;
+    var pts=ks8.map((k,i)=>({
+      x:gx+4+(i/(ks8.length-1))*(gw-8),
+      y:gy+gh-4-((vals[i]-minV)/range)*(gh-8)
+    }));
+    // Ligne
+    doc.setLineWidth(0.8);doc.setDrawColor(0,194,212);
+    if(pts.length>1){for(var pi=0;pi<pts.length-1;pi++){doc.line(pts[pi].x,pts[pi].y,pts[pi+1].x,pts[pi+1].y);}}
+    // Points et labels
+    pts.forEach((p,i)=>{
+      sF(CYAN);doc.circle(p.x,p.y,1,'F');
+      sf(6,'normal');sT([180,195,210]);
+      doc.text(ks8[i].replace('2026-',''),p.x,gy+gh+3,{align:'center'});
+      sf(6,'bold');sT(WHITE);
+      doc.text(vals[i].toLocaleString('fr-FR',{maximumFractionDigits:0})+'€',p.x,p.y-2,{align:'center'});
     });
-    if(enRupture.length>5){sf(7,'normal');sT([180,195,210]);doc.text('... et '+(enRupture.length-5)+' autre(s)',12,yS+4);yS+=8;}
+    yS+=gh+8;
+  }
+  // Ruptures
+  var enRupture=Object.keys(RUPTURES).filter(i=>RUPTURES[i]&&RUPTURES[i].rupture);
+  if(enRupture.length){
+    sf(8,'bold');sT([255,128,21]);doc.text('⚠ RUPTURES EN COURS ('+enRupture.length+' produits)',10,yS+6);yS+=10;
+    var cols3=3,rw=277/cols3,rh3=6;
+    enRupture.slice(0,12).forEach((idx,i)=>{
+      var p=PRODUITS_CATALOGUE[parseInt(idx)];
+      var cx2=10+(i%cols3)*rw,cy2=yS+Math.floor(i/cols3)*rh3;
+      sF([17,44,72]);doc.rect(cx2,cy2,rw-1,rh3-1,'F');
+      sf(6,'normal');sT([255,180,100]);
+      var nm=(p?p.nom:'?').substring(0,38);
+      doc.text(nm,cx2+2,cy2+4);
+    });
+    if(enRupture.length>12){
+      sf(6,'normal');sT([180,195,210]);
+      doc.text('... et '+(enRupture.length-12)+' autre(s)',10,yS+Math.ceil(12/cols3)*rh3+4);
+    }
+    yS+=Math.ceil(Math.min(enRupture.length,12)/cols3)*rh3+6;
   }
   // Commentaire
-  if(type==='hebdo'&&d.commentaire){
-    yS+=4;sf(8,'bold');sT(CYAN);doc.text('POINTS MARQUANTS',10,yS+6);yS+=10;
-    sF(DK);doc.roundedRect(10,yS,277,20,2,2,'F');
-    sf(8,'normal');sT(WHITE);
-    var lines=doc.splitTextToSize(d.commentaire,270);
-    lines.slice(0,2).forEach((l,i)=>doc.text(l,14,yS+7+i*6));
-    yS+=24;
+  if(d&&d.commentaire&&d.commentaire.trim()){
+    sf(8,'bold');sT(CYAN);doc.text('POINTS MARQUANTS',10,yS+5);yS+=9;
+    sF(DK);doc.roundedRect(10,yS,277,14,2,2,'F');
+    sf(7,'normal');sT(WHITE);
+    var lines2=doc.splitTextToSize(d.commentaire,270);
+    lines2.slice(0,2).forEach((l,li)=>doc.text(l,14,yS+5+li*5));
+    yS+=16;
   }
   sf(7,'normal');sT([100,120,140]);doc.text('Wave Protect France · www.wave-protect.fr · Certifié NEXIO / COFRAC',148,204,{align:'center'});
  
