@@ -6,7 +6,7 @@
 <title>WPF — Reporting Shopify</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#0B1F3A;--navy2:#122438;--navy3:#1a3050;--cyan:#00C2D4;--cyan2:#00a8b8;--orange:#FF8015;--bg:#f4f6f9;--bg2:#fff;--border:#e2e6ed;--text:#1a2332;--text2:#5a6a7e;--text3:#8fa0b4;--green:#1aab6d;--red:#e03e3e;--font:'DM Sans',system-ui,sans-serif;--mono:'DM Mono',monospace;--r:8px;--rl:12px}
@@ -312,7 +312,7 @@ function initSupabase(){
   var c=getCfg();
   if(!c.url||!c.key){setSyncState('err','Non configuré');showNoBanner(true);return false;}
   try{
-    var lib=window.supabase||window.Supabase;supabase=lib.createClient(c.url,c.key);
+    var lib=window.supabase;supabase=lib.createClient(c.url,c.key);
     setSyncState('ok','Connecté');showNoBanner(false);return true;
   }catch(e){setSyncState('err','Erreur config');return false;}
 }
@@ -344,7 +344,7 @@ async function testerConnexion(){
   var key=document.getElementById('cfg-key').value.trim();
   if(!url||!key){showCfgMsg('error','Renseignez les deux champs.');return;}
   try{
-    var lib2=window.supabase||window.Supabase;var client=lib2.createClient(url,key);
+    var lib2=window.supabase;var client=lib2.createClient(url,key);
     var {error}=await client.from('semaines').select('id').limit(1);
     if(error)throw error;
     showCfgMsg('success','✓ Connexion réussie ! Table "semaines" trouvée.');
