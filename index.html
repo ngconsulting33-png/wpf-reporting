@@ -999,45 +999,7 @@ function genPDF(type){
     });
     yS+=gh+8;
   }
-  // Ruptures
-  var enRupture=Object.keys(RUPTURES).filter(i=>RUPTURES[i]&&RUPTURES[i].rupture);
-  if(enRupture.length){
-    // Titre section
-    sF([255,128,21]);doc.rect(10,yS,277,7,'F');
-    sf(8,'bold');sT([11,31,58]);doc.text('! RUPTURES DE STOCK EN COURS : '+enRupture.length+' produit(s)',148,yS+5,{align:'center'});
-    yS+=9;
-    // En-tête tableau
-    sF([17,44,72]);doc.rect(10,yS,185,6,'F');doc.rect(196,yS,51,6,'F');doc.rect(248,yS,39,6,'F');
-    sf(6,'bold');sT([0,194,212]);
-    doc.text('PRODUIT',12,yS+4.5);doc.text('CATEGORIE',197,yS+4.5);doc.text('DEPUIS',249,yS+4.5);
-    yS+=6;
-    // Lignes produits
-    enRupture.forEach((idx,i)=>{
-      var p=PRODUITS_CATALOGUE[parseInt(idx)];
-      var r=RUPTURES[idx];
-      var bg=i%2===0?[22,52,82]:[17,44,72];
-      sF(bg);doc.rect(10,yS,277,7,'F');
-      // Bordure gauche orange
-      sF([255,128,21]);doc.rect(10,yS,2,7,'F');
-      sf(6,'normal');sT(WHITE);
-      var nm=p?p.nom:'Produit '+idx;
-      // Tronquer intelligemment à 50 chars
-      if(nm.length>52)nm=nm.substring(0,50)+'...';
-      doc.text(nm,14,yS+4.5);
-      sT([0,194,212]);
-      doc.text(p?p.cat:'--',197,yS+4.5);
-      sT([180,195,210]);
-      doc.text(r.dateRupture||'--',249,yS+4.5);
-      yS+=7;
-      // Si on dépasse la page, on arrête
-      if(yS>195){
-        var reste=enRupture.length-i-1;
-        if(reste>0){sf(6,'normal');sT([180,195,210]);doc.text('... et '+reste+' autre(s) — voir onglet Ruptures',12,yS+4);yS+=8;}
-        return;
-      }
-    });
-    yS+=4;
-  }
+  // Ruptures déplacées sur page dédiée (voir ci-dessous)
   // Commentaire
   if(d&&d.commentaire&&d.commentaire.trim()){
     sf(8,'bold');sT(CYAN);doc.text('POINTS MARQUANTS',10,yS+5);yS+=9;
@@ -1048,6 +1010,59 @@ function genPDF(type){
     yS+=16;
   }
   sf(7,'normal');sT([100,120,140]);doc.text('Wave Protect France · www.wave-protect.fr · Certifié NEXIO / COFRAC',148,204,{align:'center'});
+ 
+  // ── PAGE DÉDIÉE RUPTURES ──
+  var enRupture=Object.keys(RUPTURES).filter(i=>RUPTURES[i]&&RUPTURES[i].rupture);
+  if(enRupture.length>0){
+    doc.addPage();
+    sF(NAVY);doc.rect(0,0,297,210,'F');
+    // Header
+    sF(DK);doc.rect(0,0,297,14,'F');
+    sf(8,'bold');sT(CYAN);doc.text('WAVE PROTECT FRANCE',10,9.5);
+    sf(8,'normal');sT([180,195,210]);doc.text('RUPTURES DE STOCK — '+periode,287,9.5,{align:'right'});
+    // Bandeau titre orange
+    sF([255,128,21]);doc.rect(0,14,297,18,'F');
+    sf(14,'bold');sT(WHITE);doc.text('RUPTURES DE STOCK EN COURS',148,26,{align:'center'});
+    sf(9,'normal');sT([11,31,58]);doc.text(enRupture.length+' produit(s) — Données au '+new Date().toLocaleDateString('fr-FR'),148,31,{align:'center'});
+    // En-tête colonnes
+    var yR=36;
+    sF([11,31,58]);doc.rect(0,yR,297,8,'F');
+    sf(7,'bold');sT(CYAN);
+    doc.text('PRODUIT',14,yR+5.5);
+    doc.text('CATÉGORIE',175,yR+5.5);
+    doc.text('STOCK INITIAL',222,yR+5.5);
+    doc.text('EN RUPTURE DEPUIS',263,yR+5.5,{align:'right'});
+    yR+=8;
+    // Lignes
+    enRupture.forEach((idx,i)=>{
+      if(yR>200)return;
+      var p=PRODUITS_CATALOGUE[parseInt(idx)];
+      var r=RUPTURES[idx];
+      var pair=i%2===0;
+      sF(pair?[16,40,68]:[22,52,85]);doc.rect(0,yR,297,8,'F');
+      // Barre gauche orange
+      sF([255,128,21]);doc.rect(0,yR,3,8,'F');
+      // Nom produit
+      sf(7,'normal');sT(WHITE);
+      var nm=p?p.nom:'Produit '+idx;
+      if(nm.length>58)nm=nm.substring(0,56)+'...';
+      doc.text(nm,7,yR+5.5);
+      // Catégorie badge
+      sF([0,194,212]);doc.roundedRect(173,yR+2,30,4,1,1,'F');
+      sf(6,'bold');sT([11,31,58]);
+      doc.text((p?p.cat:'--').substring(0,12),188,yR+5.2,{align:'center'});
+      // Stock
+      sf(7,'normal');sT([255,128,21]);
+      doc.text('0 unité',222,yR+5.5);
+      // Date
+      sT([180,195,210]);
+      doc.text(r.dateRupture||'--',287,yR+5.5,{align:'right'});
+      yR+=8;
+    });
+    // Pied de page
+    sf(7,'normal');sT([100,120,140]);
+    doc.text('Wave Protect France · www.wave-protect.fr · Certifié NEXIO / COFRAC',148,204,{align:'center'});
+  }
  
   doc.save(nomFichier);toast('PDF téléchargé ✓');
 }
@@ -1065,3 +1080,4 @@ function genPDF(type){
 </script>
 </body>
 </html>
+ 
