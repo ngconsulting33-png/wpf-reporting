@@ -508,7 +508,10 @@ function goView(name,el){
   if(name==='hebdo'){buildSemSel();renderHebdo();}
   if(name==='mensuel'){buildMoisSel();renderMensuel();}
   if(name==='historique')renderHistorique();
-  if(name==='ruptures')renderRuptures();
+  if(name==='ruptures'){
+    // Recharger depuis Supabase avant d'afficher
+    loadRuptures().then(function(){renderRuptures();});
+  }
   if(name==='config'){
     var c=getCfg();
     if(c.url)document.getElementById('cfg-url').value=c.url;
@@ -792,11 +795,19 @@ async function loadRuptures(){
       var data=await sbFetch('GET','ruptures?select=*');
       RUPTURES={};
       if(data&&data.length){
-        data.forEach(r=>{RUPTURES[String(r.idx)]={rupture:r.rupture,dateRupture:r.date_rupture};});
+        data.forEach(function(r){
+          // Stocker uniquement les ruptures cochées (rupture=true)
+          if(r.rupture){
+            RUPTURES[String(r.idx)]={rupture:true,dateRupture:r.date_rupture||null};
+          }
+        });
       }
       localStorage.setItem('wpf-ruptures',JSON.stringify(RUPTURES));
     }catch(e){console.log('Ruptures Supabase inaccessible, données locales utilisées');}
   }
+  // Rafraîchir l'affichage si on est sur la vue ruptures
+  var active=document.querySelector('.view.active');
+  if(active&&active.id==='view-ruptures')renderRuptures();
 }
  
 async function sauvegarderRuptures(){
@@ -1085,28 +1096,34 @@ function genPDF(type){
 // ══════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════
-(function init(){
+document.addEventListener('DOMContentLoaded', async function(){
   loadLocal();
-  initSupabase();
-  loadAllFromSupabase();
-  loadRuptures();
   buildSemSel();buildMoisSel();
+  // Initialiser Supabase et charger les données
+  var connected = initSupabase();
+  if(connected){
+    await loadAllFromSupabase();
+    await loadRuptures();
+    buildSemSel();buildMoisSel();
+  }
   // Sync automatique toutes les 60 secondes
   setInterval(async function(){
     if(SBURL&&SBKEY){
       await loadAllFromSupabase();
       await loadRuptures();
-      // Rafraîchir la vue active silencieusement
       var active=document.querySelector('.view.active');
       if(!active)return;
       var name=active.id.replace('view-','');
       if(name==='hebdo'){buildSemSel();renderHebdo();}
       if(name==='mensuel'){buildMoisSel();renderMensuel();}
       if(name==='historique')renderHistorique();
-      if(name==='ruptures')renderRuptures();
+      if(name==='ruptures'){
+    // Recharger depuis Supabase avant d'afficher
+    loadRuptures().then(function(){renderRuptures();});
+  }
     }
   }, 60000);
-})();
+});
 </script>
 </body>
 </html>
