@@ -340,19 +340,19 @@ var PRODUITS_CATALOGUE = [{"nom": "Aqua Clip WP1 | Broche anti-ondes waterproof 
  
 // Appel REST Supabase natif
 async function sbFetch(method, path, body) {
-  var res = await fetch(SBURL + '/rest/v1/' + path, {
-    method: method,
-    headers: {
-      'apikey': SBKEY,
-      'Authorization': 'Bearer ' + SBKEY,
-      'Content-Type': 'application/json',
-      'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : 'return=minimal'
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
+  var headers = {
+    'apikey': SBKEY,
+    'Authorization': 'Bearer ' + SBKEY,
+    'Content-Type': 'application/json'
+  };
+  if(method==='POST') headers['Prefer'] = 'return=minimal';
+  if(method==='DELETE') headers['Prefer'] = 'return=minimal';
+  var opts = {method:method, headers:headers};
+  if(body!==undefined) opts.body = JSON.stringify(body);
+  var res = await fetch(SBURL + '/rest/v1/' + path, opts);
   if (!res.ok) {
     var err = await res.text();
-    throw new Error(err);
+    throw new Error('sbFetch '+method+' '+path+' : '+err);
   }
   var txt = await res.text();
   return txt ? JSON.parse(txt) : [];
@@ -401,6 +401,7 @@ function sauvegarderConfig(){
   SBURL=url; SBKEY=key;
   showCfgMsg('success','Connecté ! Chargement des données…');
   loadAllFromSupabase();
+  loadRuptures();
 }
  
 async function testerConnexion(){
@@ -801,24 +802,25 @@ async function loadRuptures(){
 async function sauvegarderRuptures(){
   localStorage.setItem('wpf-ruptures',JSON.stringify(RUPTURES));
   if(SBURL&&SBKEY){
-    try{
-      // Envoyer toutes les ruptures en une seule requête batch
-      var rows=Object.keys(RUPTURES).map(idx=>({
-        idx:parseInt(idx),
-        rupture:RUPTURES[idx].rupture,
-        date_rupture:RUPTURES[idx].dateRupture||null,
-        updated_at:new Date().toISOString()
-      }));
-      if(rows.length>0){
-        await sbFetch('POST','ruptures',rows);
-      }
-      // Supprimer les ruptures décochées de Supabase
-      var decochees=Object.keys(RUPTURES).filter(i=>!RUPTURES[i].rupture);
-      for(var idx of decochees){
+    var ok=0,err=0;
+    // Envoyer chaque rupture cochée une par une via PATCH (upsert)
+    var cochees=Object.keys(RUPTURES).filter(i=>RUPTURES[i]&&RUPTURES[i].rupture);
+    for(var idx of cochees){
+      try{
+        var row={idx:parseInt(idx),rupture:true,date_rupture:RUPTURES[idx].dateRupture||null,updated_at:new Date().toISOString()};
+        // Essayer d'abord DELETE + INSERT pour éviter les conflits
         try{await sbFetch('DELETE','ruptures?idx=eq.'+idx);}catch(e){}
-      }
-      toast('Ruptures synchronisées ✓');
-    }catch(e){toast('Ruptures sauvegardées localement — sync échouée');}
+        await sbFetch('POST','ruptures',row);
+        ok++;
+      }catch(e){console.error('Erreur rupture idx '+idx+':',e);err++;}
+    }
+    // Supprimer les décochées
+    var decochees=Object.keys(RUPTURES).filter(i=>!RUPTURES[i].rupture);
+    for(var idx of decochees){
+      try{await sbFetch('DELETE','ruptures?idx=eq.'+idx);}catch(e){}
+    }
+    if(err===0){toast('Ruptures synchronisées : '+ok+' produit(s) ✓');}
+    else{toast(ok+' sync OK, '+err+' erreur(s) — voir console');}
   } else {
     toast('Ruptures sauvegardées localement ✓');
   }
@@ -1108,3 +1110,4 @@ function genPDF(type){
 </script>
 </body>
 </html>
+ 
