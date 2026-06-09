@@ -122,7 +122,7 @@ tr:hover td{background:#fafbfc}
       <div class="ni" onclick="goView('ruptures',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Ruptures</div>
       <div class="ni" onclick="goView('config',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Configuration</div>
     </nav>
-    <div class="sf"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Non configuré</span></div>
+    <div class="sf"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Non configuré</span><br><span id="sync-time" style="font-size:9px;opacity:.6"></span></div>
   </div>
  
   <div class="main">
@@ -381,6 +381,10 @@ function initSupabase(){
 function setSyncState(s,l){
   document.getElementById('sync-dot').className='sync-dot '+s;
   document.getElementById('sync-label').textContent=l;
+  if(s==='ok'){
+    var t=document.getElementById('sync-time');
+    if(t)t.textContent='Dernière sync : '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  }
 }
  
 function showNoBanner(v){
@@ -779,20 +783,18 @@ var RUPTURES = {"50": {"rupture": true, "dateRupture": "2026-05-01"}, "51": {"ru
 var RUPT_FILTER = 'tous';
  
 async function loadRuptures(){
-  try{
-    var r=localStorage.getItem('wpf-ruptures');
-    RUPTURES=r?JSON.parse(r):{};
-  }catch(e){RUPTURES={};}
-  // Charger depuis Supabase si connecté
+  // D'abord charger le local comme fallback
+  try{var r=localStorage.getItem('wpf-ruptures');RUPTURES=r?JSON.parse(r):{};}catch(e){RUPTURES={};}
+  // Toujours essayer Supabase (source de vérité partagée)
   if(SBURL&&SBKEY){
     try{
       var data=await sbFetch('GET','ruptures?select=*');
+      RUPTURES={};
       if(data&&data.length){
-        RUPTURES={};
-        data.forEach(r=>{RUPTURES[r.idx]={rupture:r.rupture,dateRupture:r.date_rupture};});
-        localStorage.setItem('wpf-ruptures',JSON.stringify(RUPTURES));
+        data.forEach(r=>{RUPTURES[String(r.idx)]={rupture:r.rupture,dateRupture:r.date_rupture};});
       }
-    }catch(e){}
+      localStorage.setItem('wpf-ruptures',JSON.stringify(RUPTURES));
+    }catch(e){console.log('Ruptures Supabase inaccessible, données locales utilisées');}
   }
 }
  
@@ -800,12 +802,23 @@ async function sauvegarderRuptures(){
   localStorage.setItem('wpf-ruptures',JSON.stringify(RUPTURES));
   if(SBURL&&SBKEY){
     try{
-      for(var idx in RUPTURES){
-        var r=RUPTURES[idx];
-        await sbFetch('POST','ruptures',{idx:parseInt(idx),rupture:r.rupture,date_rupture:r.dateRupture,updated_at:new Date().toISOString()});
+      // Envoyer toutes les ruptures en une seule requête batch
+      var rows=Object.keys(RUPTURES).map(idx=>({
+        idx:parseInt(idx),
+        rupture:RUPTURES[idx].rupture,
+        date_rupture:RUPTURES[idx].dateRupture||null,
+        updated_at:new Date().toISOString()
+      }));
+      if(rows.length>0){
+        await sbFetch('POST','ruptures',rows);
       }
-      toast('Ruptures sauvegardées ✓');
-    }catch(e){toast('Sauvegardé localement');}
+      // Supprimer les ruptures décochées de Supabase
+      var decochees=Object.keys(RUPTURES).filter(i=>!RUPTURES[i].rupture);
+      for(var idx of decochees){
+        try{await sbFetch('DELETE','ruptures?idx=eq.'+idx);}catch(e){}
+      }
+      toast('Ruptures synchronisées ✓');
+    }catch(e){toast('Ruptures sauvegardées localement — sync échouée');}
   } else {
     toast('Ruptures sauvegardées localement ✓');
   }
@@ -1076,8 +1089,22 @@ function genPDF(type){
   loadAllFromSupabase();
   loadRuptures();
   buildSemSel();buildMoisSel();
+  // Sync automatique toutes les 60 secondes
+  setInterval(async function(){
+    if(SBURL&&SBKEY){
+      await loadAllFromSupabase();
+      await loadRuptures();
+      // Rafraîchir la vue active silencieusement
+      var active=document.querySelector('.view.active');
+      if(!active)return;
+      var name=active.id.replace('view-','');
+      if(name==='hebdo'){buildSemSel();renderHebdo();}
+      if(name==='mensuel'){buildMoisSel();renderMensuel();}
+      if(name==='historique')renderHistorique();
+      if(name==='ruptures')renderRuptures();
+    }
+  }, 60000);
 })();
 </script>
 </body>
 </html>
- 
