@@ -513,7 +513,6 @@ function goView(name,el){
   if(name==='mensuel'){buildMoisSel();renderMensuel();}
   if(name==='historique')renderHistorique();
   if(name==='ruptures'){
-    // Recharger depuis Supabase avant d'afficher
     loadRuptures().then(function(){renderRuptures();});
   }
   if(name==='config'){
@@ -1102,14 +1101,13 @@ function genPDF(type){
 // ══════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async function(){
   loadLocal();
-  buildSemSel();buildMoisSel();
-  // SBURL et SBKEY sont déjà initialisés comme variables globales
+  buildSemSel();
+  buildMoisSel();
   initSupabase();
-  // Charger les données depuis Supabase
   await loadAllFromSupabase();
   await loadRuptures();
-  buildSemSel();buildMoisSel();
-  {
+  buildSemSel();
+  buildMoisSel();
   // Sync automatique toutes les 60 secondes
   setInterval(async function(){
     if(SBURL&&SBKEY){
@@ -1121,10 +1119,7 @@ document.addEventListener('DOMContentLoaded', async function(){
       if(name==='hebdo'){buildSemSel();renderHebdo();}
       if(name==='mensuel'){buildMoisSel();renderMensuel();}
       if(name==='historique')renderHistorique();
-      if(name==='ruptures'){
-    // Recharger depuis Supabase avant d'afficher
-    loadRuptures().then(function(){renderRuptures();});
-  }
+      if(name==='ruptures')renderRuptures();
     }
   }, 60000);
 });
