@@ -102,6 +102,15 @@ tr:hover td{background:#fafbfc}
 .filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .filter-btn{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--text2);transition:all .15s}
 .filter-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.cat-row{display:grid;grid-template-columns:1fr 110px 80px 80px 90px;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--border);font-size:12px}
+.cat-row:hover{background:#fafbfc}
+.cat-hdr{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:var(--bg)}
+.cat-row input[type=text],.cat-row input[type=number],.cat-row select{height:28px;padding:0 8px;border-radius:var(--r);border:1px solid var(--border);font-size:12px;font-family:var(--font);color:var(--text);width:100%}
+.cat-row input:focus,.cat-row select:focus{outline:none;border-color:var(--cyan)}
+.stock-badge{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.stock-ok{background:#e8f8f1;color:var(--green)}
+.stock-low{background:#fff3e0;color:var(--orange)}  
+.stock-zero{background:#fef0f0;color:var(--red)}
 .chart-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--rl);padding:16px;margin-bottom:18px}
 .chart-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px}
 .chart-sub{font-size:11px;color:var(--text3);margin-left:8px;font-weight:400}
@@ -120,6 +129,7 @@ tr:hover td{background:#fafbfc}
       <div class="ns" style="margin-top:8px">Données</div>
       <div class="ni" onclick="goView('historique',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Historique</div>
       <div class="ni" onclick="goView('ruptures',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Ruptures</div>
+      <div class="ni" onclick="goView('catalogue',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>Catalogue</div>
       <div class="ni" onclick="goView('config',this)"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Configuration</div>
     </nav>
     <div class="sf"><span class="sync-dot" id="sync-dot"></span><span id="sync-label">Non configuré</span><br><span id="sync-time" style="font-size:9px;opacity:.6"></span></div>
@@ -307,6 +317,65 @@ CREATE POLICY "Modification publique" ON semaines
         </div>
       </div>
  
+      <!-- CATALOGUE -->
+      <div id="view-catalogue" class="view">
+        <div class="sh" style="margin-bottom:14px">
+          <div><div class="st">Catalogue produits</div><div class="ss" id="cat-count"></div></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn cyan sm" onclick="ajouterProduit()">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Ajouter produit
+            </button>
+            <button class="btn primary sm" onclick="sauvegarderCatalogue()">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/></svg>
+              Sauvegarder tout
+            </button>
+          </div>
+        </div>
+        <!-- Formulaire ajout rapide -->
+        <div id="form-ajout" style="display:none;background:#fff;border:1px solid var(--border);border-radius:var(--rl);padding:16px;margin-bottom:16px">
+          <div class="fst" style="margin-bottom:12px">Nouveau produit</div>
+          <div class="fg" style="margin-bottom:12px">
+            <div class="field"><label>Nom du produit</label><input id="new-nom" type="text" placeholder="Ex: Bracelet WP1 Noir"></div>
+            <div class="field"><label>Catégorie</label>
+              <select id="new-cat">
+                <option>Bracelet</option><option>Pendentif</option><option>Broche</option>
+                <option>Sport</option><option>Steve Savidan</option><option>Accessoire</option><option>Autre</option>
+              </select>
+            </div>
+            <div class="field"><label>Stock initial</label><input id="new-stock" type="number" placeholder="0" min="0"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn primary sm" onclick="confirmerAjout()">Ajouter</button>
+            <button class="btn sm" onclick="document.getElementById('form-ajout').style.display='none'">Annuler</button>
+          </div>
+        </div>
+        <!-- Barre de recherche + filtre -->
+        <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+          <input id="cat-search" type="text" placeholder="Rechercher un produit..." oninput="renderCatalogue()" 
+            style="height:32px;padding:0 10px;border-radius:var(--r);border:1px solid var(--border);font-size:12px;font-family:var(--font);flex:1">
+          <select id="cat-filter-cat" onchange="renderCatalogue()"
+            style="height:32px;padding:0 8px;border-radius:var(--r);border:1px solid var(--border);font-size:12px;font-family:var(--font)">
+            <option value="">Toutes catégories</option>
+            <option>Bracelet</option><option>Pendentif</option><option>Broche</option>
+            <option>Sport</option><option>Steve Savidan</option><option>Accessoire</option><option>Autre</option>
+          </select>
+          <select id="cat-filter-stock" onchange="renderCatalogue()"
+            style="height:32px;padding:0 8px;border-radius:var(--r);border:1px solid var(--border);font-size:12px;font-family:var(--font)">
+            <option value="">Tous les stocks</option>
+            <option value="zero">En rupture (0)</option>
+            <option value="low">Stock faible (≤10)</option>
+            <option value="ok">En stock (>10)</option>
+          </select>
+        </div>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:var(--rl);overflow:hidden">
+          <div class="cat-row cat-hdr">
+            <span>Produit</span><span>Catégorie</span><span>Stock</span><span>Rupture</span><span>Action</span>
+          </div>
+          <div id="catalogue-list"></div>
+        </div>
+      </div>
+ 
       <!-- RUPTURES -->
       <div id="view-ruptures" class="view">
         <div class="sh" style="margin-bottom:14px">
@@ -345,7 +414,7 @@ async function sbFetch(method, path, body) {
     'Authorization': 'Bearer ' + SBKEY,
     'Content-Type': 'application/json'
   };
-  if(method==='POST') headers['Prefer'] = 'return=minimal';
+  if(method==='POST') headers['Prefer'] = 'resolution=merge-duplicates,return=minimal';
   if(method==='DELETE') headers['Prefer'] = 'return=minimal';
   var opts = {method:method, headers:headers};
   if(body!==undefined) opts.body = JSON.stringify(body);
@@ -502,7 +571,7 @@ function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.c
 // ══════════════════════════════════════════════
 //  NAVIGATION
 // ══════════════════════════════════════════════
-var TITLES={saisie:'Saisie semaine',hebdo:'Rapport hebdomadaire',mensuel:'Rapport mensuel',historique:'Historique',ruptures:'Ruptures de stock',config:'Configuration'};
+var TITLES={saisie:'Saisie semaine',hebdo:'Rapport hebdomadaire',mensuel:'Rapport mensuel',historique:'Historique',ruptures:'Ruptures de stock',catalogue:'Catalogue produits',config:'Configuration'};
 function goView(name,el){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
@@ -512,6 +581,9 @@ function goView(name,el){
   if(name==='hebdo'){buildSemSel();renderHebdo();}
   if(name==='mensuel'){buildMoisSel();renderMensuel();}
   if(name==='historique')renderHistorique();
+  if(name==='catalogue'){
+    loadCatalogue().then(function(){renderCatalogue();});
+  }
   if(name==='ruptures'){
     loadRuptures().then(function(){renderRuptures();});
   }
@@ -890,6 +962,182 @@ function setDateRupture(idx,date){
 }
  
 // ══════════════════════════════════════════════
+//  CATALOGUE
+// ══════════════════════════════════════════════
+var CATALOGUE = []; // Copie locale du catalogue
+ 
+async function loadCatalogue(){
+  // Charger depuis Supabase d'abord
+  if(SBURL&&SBKEY){
+    try{
+      var data = await sbFetch('GET','catalogue?select=*&order=nom');
+      if(data&&data.length){
+        // Fusionner avec PRODUITS_CATALOGUE (Supabase est la source de vérité)
+        CATALOGUE = data.map(function(r){
+          return {idx:r.idx, nom:r.nom, cat:r.cat||'Autre', stock:r.stock||0};
+        });
+        // Mettre à jour PRODUITS_CATALOGUE aussi
+        CATALOGUE.forEach(function(p){
+          if(p.idx < PRODUITS_CATALOGUE.length){
+            PRODUITS_CATALOGUE[p.idx].stock = p.stock;
+            PRODUITS_CATALOGUE[p.idx].nom = p.nom;
+            PRODUITS_CATALOGUE[p.idx].cat = p.cat;
+          } else {
+            PRODUITS_CATALOGUE[p.idx] = {nom:p.nom, cat:p.cat, stock:p.stock, rupture:false, dateRupture:null};
+          }
+        });
+        return;
+      }
+    }catch(e){console.log('Catalogue Supabase inaccessible');}
+  }
+  // Fallback : utiliser PRODUITS_CATALOGUE
+  CATALOGUE = PRODUITS_CATALOGUE.map(function(p,i){return {idx:i,nom:p.nom,cat:p.cat,stock:p.stock||0};});
+}
+ 
+async function sauvegarderCatalogue(){
+  // Sauvegarder toutes les modifications en cours dans les inputs
+  var rows = document.querySelectorAll('#catalogue-list .cat-row[data-idx]');
+  rows.forEach(function(row){
+    var idx = parseInt(row.dataset.idx);
+    var stockInput = row.querySelector('.stock-input');
+    if(stockInput){
+      var newStock = parseInt(stockInput.value)||0;
+      if(CATALOGUE[idx]) CATALOGUE[idx].stock = newStock;
+      if(PRODUITS_CATALOGUE[idx]) PRODUITS_CATALOGUE[idx].stock = newStock;
+    }
+  });
+  if(SBURL&&SBKEY){
+    var ok=0,err=0;
+    for(var i=0;i<CATALOGUE.length;i++){
+      try{
+        var p = CATALOGUE[i];
+        await sbFetch('POST','catalogue',{idx:p.idx,nom:p.nom,cat:p.cat,stock:p.stock,updated_at:new Date().toISOString()});
+        ok++;
+      }catch(e){err++;console.error('Erreur save catalogue idx '+i,e);}
+    }
+    toast(ok+' produit(s) sauvegardé(s)'+( err?' ('+err+' erreur(s))':'')+'✓');
+  } else {
+    toast('Sauvegardé localement ✓');
+  }
+  renderCatalogue();
+}
+ 
+async function sauvegarderUnProduit(idx){
+  var p = CATALOGUE[idx];
+  if(!p)return;
+  if(SBURL&&SBKEY){
+    try{
+      await sbFetch('POST','catalogue',{idx:p.idx,nom:p.nom,cat:p.cat,stock:p.stock,updated_at:new Date().toISOString()});
+      toast(p.nom.substring(0,30)+'... mis à jour ✓');
+    }catch(e){toast('Erreur sauvegarde : '+e.message);}
+  }
+  // Mettre à jour PRODUITS_CATALOGUE
+  if(PRODUITS_CATALOGUE[idx]){
+    PRODUITS_CATALOGUE[idx].stock = p.stock;
+  }
+}
+ 
+function ajouterProduit(){
+  document.getElementById('form-ajout').style.display='block';
+  document.getElementById('new-nom').focus();
+}
+ 
+async function confirmerAjout(){
+  var nom = document.getElementById('new-nom').value.trim();
+  var cat = document.getElementById('new-cat').value;
+  var stock = parseInt(document.getElementById('new-stock').value)||0;
+  if(!nom){alert('Renseignez le nom du produit.');return;}
+  var newIdx = PRODUITS_CATALOGUE.length;
+  var newProd = {idx:newIdx, nom:nom, cat:cat, stock:stock};
+  CATALOGUE.push(newProd);
+  PRODUITS_CATALOGUE.push({nom:nom, cat:cat, stock:stock, rupture:false, dateRupture:null});
+  if(SBURL&&SBKEY){
+    try{
+      await sbFetch('POST','catalogue',{idx:newIdx,nom:nom,cat:cat,stock:stock,updated_at:new Date().toISOString()});
+      toast(nom+' ajouté ✓');
+    }catch(e){toast('Ajouté localement — sync échouée');}
+  }
+  document.getElementById('form-ajout').style.display='none';
+  document.getElementById('new-nom').value='';
+  document.getElementById('new-stock').value='';
+  renderCatalogue();
+}
+ 
+async function supprimerProduitCatalogue(idx){
+  if(!confirm('Supprimer ce produit du catalogue ?'))return;
+  CATALOGUE = CATALOGUE.filter(function(p){return p.idx!==idx;});
+  if(SBURL&&SBKEY){
+    try{
+      await sbFetch('DELETE','catalogue?idx=eq.'+idx);
+      toast('Produit supprimé ✓');
+    }catch(e){toast('Supprimé localement — sync échouée');}
+  }
+  renderCatalogue();
+}
+ 
+function renderCatalogue(){
+  var search = (document.getElementById('cat-search')||{}).value||'';
+  var filterCat = (document.getElementById('cat-filter-cat')||{}).value||'';
+  var filterStock = (document.getElementById('cat-filter-stock')||{}).value||'';
+  var list = document.getElementById('catalogue-list');
+  if(!list)return;
+  var count = document.getElementById('cat-count');
+ 
+  var filtered = CATALOGUE.filter(function(p){
+    if(search&&!p.nom.toLowerCase().includes(search.toLowerCase()))return false;
+    if(filterCat&&p.cat!==filterCat)return false;
+    if(filterStock==='zero'&&p.stock!==0)return false;
+    if(filterStock==='low'&&(p.stock<=0||p.stock>10))return false;
+    if(filterStock==='ok'&&p.stock<=10)return false;
+    return true;
+  });
+ 
+  if(count){
+    var enRup = CATALOGUE.filter(function(p){return p.stock===0;}).length;
+    var faible = CATALOGUE.filter(function(p){return p.stock>0&&p.stock<=10;}).length;
+    count.textContent = CATALOGUE.length+' produits · '+enRup+' en rupture · '+faible+' stock faible';
+  }
+ 
+  if(!filtered.length){list.innerHTML='<div class="empty">Aucun produit trouvé.</div>';return;}
+ 
+  list.innerHTML = filtered.map(function(p){
+    var stockClass = p.stock===0?'stock-zero':p.stock<=10?'stock-low':'stock-ok';
+    var stockLabel = p.stock===0?'Rupture':p.stock<=10?'Faible':'OK';
+    var ruptCochee = RUPTURES[String(p.idx)]&&RUPTURES[String(p.idx)].rupture;
+    return '<div class="cat-row" data-idx="'+p.idx+'">'+
+      '<span style="font-size:12px;color:var(--text)">'+p.nom+'</span>'+
+      '<span><select onchange="updateCat('+p.idx+',this.value)" style="height:26px;padding:0 6px;border-radius:var(--r);border:1px solid var(--border);font-size:11px;font-family:var(--font);color:var(--text)">'+
+        ['Bracelet','Pendentif','Broche','Sport','Steve Savidan','Accessoire','Autre'].map(function(c){
+          return '<option'+(c===p.cat?' selected':'')+'>'+c+'</option>';
+        }).join('')+
+      '</select></span>'+
+      '<span><input type="number" class="stock-input" value="'+p.stock+'" min="0" '+
+        'onchange="updateStock('+p.idx+',this.value)" '+
+        'style="height:26px;padding:0 6px;border-radius:var(--r);border:1px solid var(--border);font-size:12px;font-family:var(--mono);width:70px;text-align:center;'+
+        (p.stock===0?'border-color:var(--red);color:var(--red);':p.stock<=10?'border-color:var(--orange);color:var(--orange);':'')+
+        '"></span>'+
+      '<span><span class="stock-badge '+stockClass+'">'+stockLabel+'</span>'+
+        (ruptCochee?'<span style="font-size:10px;color:var(--red);margin-left:6px">⬤ rupture</span>':'')+
+      '</span>'+
+      '<span><button class="btn sm danger" onclick="supprimerProduitCatalogue('+p.idx+')">Sup.</button>'+
+        '<button class="btn sm" onclick="sauvegarderUnProduit('+p.idx+')" style="margin-left:4px">✓</button>'+
+      '</span>'+
+    '</div>';
+  }).join('');
+}
+ 
+function updateStock(idx, val){
+  var stock = parseInt(val)||0;
+  if(CATALOGUE[idx]) CATALOGUE[idx].stock = stock;
+  if(PRODUITS_CATALOGUE[idx]) PRODUITS_CATALOGUE[idx].stock = stock;
+}
+ 
+function updateCat(idx, cat){
+  if(CATALOGUE[idx]) CATALOGUE[idx].cat = cat;
+  if(PRODUITS_CATALOGUE[idx]) PRODUITS_CATALOGUE[idx].cat = cat;
+}
+ 
+// ══════════════════════════════════════════════
 //  PDF
 // ══════════════════════════════════════════════
 function genPDF(type){
@@ -1106,6 +1354,7 @@ document.addEventListener('DOMContentLoaded', async function(){
   initSupabase();
   await loadAllFromSupabase();
   await loadRuptures();
+  await loadCatalogue();
   buildSemSel();
   buildMoisSel();
   // Sync automatique toutes les 60 secondes
@@ -1126,5 +1375,3 @@ document.addEventListener('DOMContentLoaded', async function(){
 </script>
 </body>
 </html>
-
- 
