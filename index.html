@@ -1321,6 +1321,10 @@ function aggW(sems){
   A.convB2B=(isNum(A.b2bProspects)&&A.b2bProspects>0&&isNum(A.b2bSignes))?A.b2bSignes/A.b2bProspects*100:null;
   var srcT=[A.sessOrga,A.sessDirect,A.sessEmail,A.sessSocial,A.sessPayant].filter(isNum).reduce(function(a,b){return a+b;},0);
   A.partOrga=(isNum(A.sessOrga)&&srcT>0)?A.sessOrga/srcT*100:null;
+  // Répartition du trafic par canal (% des sessions totales ; le reste = non classé)
+  var mixBase=(isNum(A.sessions)&&A.sessions>=srcT&&A.sessions>0)?A.sessions:srcT;
+  [['pOrga','sessOrga'],['pDirect','sessDirect'],['pEmail','sessEmail'],['pSocial','sessSocial'],['pPayant','sessPayant']].forEach(function(x){A[x[0]]=(mixBase>0&&isNum(A[x[1]]))?A[x[1]]/mixBase*100:null;});
+  A.pAutre=(mixBase>0&&srcT>0)?Math.max(0,mixBase-srcT)/mixBase*100:null;
   A.cac=(isNum(A.budgetPub)&&A.budgetPub>0&&isNum(A.nvxCl)&&A.nvxCl>0)?A.budgetPub/A.nvxCl:null;
   return A;
 }
@@ -1396,6 +1400,7 @@ function evoHtml(f,v,p,dir,sfx){
     d=(v-p)/Math.abs(p)*100;txt=(d>=0?'+':'')+d.toLocaleString('fr-FR',{maximumFractionDigits:1})+' %';
   }
   var zero=Math.abs(d)<0.05,good=dir==='down'?d<0:d>0;
+  if(dir==='flat')zero=true;
   if(zero)txt=txt.replace('+','');
   var cls=zero?'flat':(good?'up':'down'),arrow=zero?'▬':(d>0?'▲':'▼');
   return '<span class="'+cls+'">'+arrow+' '+txt+'</span><span class="flat" style="font-size:10px;margin-left:4px">'+esc(sfx||'')+'</span>';
@@ -1617,6 +1622,14 @@ function renderDashboard(){
     {l:'ROAS',k:'roas',f:'x',dir:'up',obj:'roas'},
     {l:"Coût d'acquisition client",k:'cac',f:'eur',dir:'down',subFn:function(){return 'budget pub ÷ nouveaux clients';}}
   ];
+  var mix=[
+    {l:'Organique (SEO)',k:'pOrga',f:'pct',dir:'flat',subFn:function(c){return isNum(c.sessOrga)?FMT.n(c.sessOrga)+' sessions':'';}},
+    {l:'Direct',k:'pDirect',f:'pct',dir:'flat',subFn:function(c){return isNum(c.sessDirect)?FMT.n(c.sessDirect)+' sessions':'';}},
+    {l:'Réseaux sociaux',k:'pSocial',f:'pct',dir:'flat',subFn:function(c){return isNum(c.sessSocial)?FMT.n(c.sessSocial)+' sessions':'';}},
+    {l:'Email',k:'pEmail',f:'pct',dir:'flat',subFn:function(c){return isNum(c.sessEmail)?FMT.n(c.sessEmail)+' sessions':'';}},
+    {l:'Payant',k:'pPayant',f:'pct',dir:'flat',subFn:function(c){return isNum(c.sessPayant)?FMT.n(c.sessPayant)+' sessions':'';}},
+    {l:'Autres / non classé',k:'pAutre',f:'pct',dir:'flat',subFn:function(){return 'sites tiers, shopify, non attribué';}}
+  ];
   var cli=[
     {l:'Nouveaux clients',k:'nvxCl',f:'n',dir:'up'},
     {l:'Taux de récurrence',k:'txRec',f:'pct',dir:'up',obj:'txRec'},
@@ -1689,6 +1702,8 @@ function renderDashboard(){
   addCh('ch-trafic','Sessions et taux de conversion',U,objs([bar('Sessions',sSess,'rgba(11,31,58,.78)'),line('Conversion (%)',sConv,C_ORANGE,true),OBJ.txConv>0?objL('Objectif conversion (%)',OBJ.txConv,true):null]),sc2({},{ticks:pctTick}));
   addCh('ch-aband','Abandon de panier',U,objs([line('Abandon panier (%)',sAb,C_NAVY),OBJ.txAband>0?objL('Objectif max (%)',OBJ.txAband):null]),sc2({ticks:pctTick}));
   addCh('ch-src','Sources de trafic','sessions '+U,srcs,{x:ax({stacked:true}),y:ax({stacked:true,beginAtZero:true})});
+  var mixS=[['Organique','pOrga',C_CYAN],['Direct','pDirect',C_NAVY],['Réseaux sociaux','pSocial',C_GREEN],['Email','pEmail',C_ORANGE],['Payant','pPayant',C_GREY],['Autres / non classé','pAutre','rgba(143,160,180,.35)']].map(function(x){return {type:'bar',label:x[0]+' (%)',data:ser(x[1]).map(function(v){return isNum(v)?Math.round(v*10)/10:null;}),backgroundColor:x[2],stack:'mix'};});
+  addCh('ch-srcpct','Répartition du trafic par canal','% des sessions '+U,mixS,{x:ax({stacked:true}),y:ax({stacked:true,beginAtZero:true,max:100,ticks:pctTick})});
   addCh('ch-pub','Publicité','budget et ROAS',objs([bar('Budget pub (€)',ser('budgetPub'),'rgba(255,128,21,.8)'),line('ROAS',ser('roas'),C_NAVY,true),OBJ.roas>0?objL('Objectif ROAS',OBJ.roas,true):null]),sc2({ticks:eurTick},{ticks:{callback:function(v){return v+'x';}}}));
   addCh('ch-cli','Clients','nouveaux clients et récurrence',objs([bar('Nouveaux clients',ser('nvxCl'),'rgba(26,171,109,.75)'),line('Récurrence (%)',ser('txRec'),C_NAVY,true),OBJ.txRec>0?objL('Objectif récurrence (%)',OBJ.txRec,true):null]),sc2({ticks:{precision:0}},{ticks:pctTick}));
   addCh('ch-sat','Satisfaction','avis reçus et note moyenne',objs([bar('Avis reçus',ser('nbAvis'),'rgba(0,194,212,.6)'),line('Note moyenne (/5)',ser('note'),C_ORANGE,true),OBJ.note>0?objL('Objectif note',OBJ.note,true):null]),sc2({ticks:{precision:0}},{min:0,max:5}));
@@ -1710,7 +1725,8 @@ function renderDashboard(){
   html+=buildAlerts(A,P,S);
   html+='<div class="ss" style="margin:-8px 0 16px">Graphiques : '+PS.sub+'</div>';
   html+=secHtml('Indicateurs clés','',key6,A,P,sfx,'',grid(['ch-ca','ch-cmd','ch-panier']));
-  html+=secHtml('Trafic & conversion','',traf,A,P,sfx,'Pas encore de données de trafic.',grid(['ch-trafic','ch-aband','ch-src','ch-pub']));
+  html+=secHtml('Trafic & conversion','',traf,A,P,sfx,'Pas encore de données de trafic.',grid(['ch-trafic','ch-aband','ch-pub']));
+  html+=secHtml('Répartition du trafic par canal','part de chaque canal dans les sessions',mix,A,P,sfx,'Renseigne l\'onglet « Acquisition » dans Saisie semaine (ou importe le CSV Shopify).',grid(['ch-srcpct','ch-src']));
   html+=secHtml('Clients & satisfaction','',cli,A,P,sfx,'Pas encore de données clients.',grid(['ch-cli','ch-sat']));
   html+=secHtml('Acquisition : SEO & email','',acq,A,P,sfx,'Renseigne l\'onglet « Acquisition » dans Saisie semaine (Search Console, email, sources de trafic).',grid(['ch-seo','ch-email']));
   html+=secHtml('B2B & rétrocessions','',b2b,A,P,sfx,'Renseigne l\'onglet « B2B & Pub » dans Saisie semaine (pipeline revendeurs, inactifs).',funnelHtml(A)+grid(['ch-b2b','ch-pipe','ch-retro']));
