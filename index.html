@@ -299,6 +299,11 @@ CREATE POLICY "Modification publique" ON semaines
             <div class="field"><label>Revendeurs signés</label><input id="f-b2bsignes" type="number"></div>
             <div class="field"><label>Revendeurs inactifs (&gt;60 j)</label><input id="f-b2binactifs" type="number"></div>
           </div></div>
+<div class="fs"><div class="fst">Publicité : aucune dépense</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Met à <b>0</b> le budget pub total, Meta, Google et TikTok sur toutes les semaines déjà saisies où ces champs sont vides. Les montants déjà renseignés ne sont pas modifiés. Le ROAS reste « non renseigné » (il n'a pas de sens sans dépense).</div>
+            <button class="btn" id="btn-zeropub" onclick="zeroPub()">Mettre les budgets pub vides à 0 (toutes les semaines)</button>
+            <div id="zeropub-out"></div>
+          </div>
 <div class="fs"><div class="fst">Publicité</div><div class="fg">
             <div class="field"><label>Budget total (€)</label><input id="f-budgetpub" type="number" step="0.01"></div>
             <div class="field"><label>ROAS moyen</label><input id="f-roas" type="number" step="0.01"></div>
@@ -525,6 +530,7 @@ async function sbFetch(method, path, body) {
   };
   if(method==='POST') headers['Prefer'] = 'resolution=merge-duplicates,return=minimal';
   if(method==='DELETE') headers['Prefer'] = 'return=minimal';
+  if(method==='PATCH') headers['Prefer'] = 'return=representation';
   var opts = {method:method, headers:headers};
   if(body!==undefined) opts.body = JSON.stringify(body);
   var res = await fetch(SBURL + '/rest/v1/' + path, opts);
@@ -608,6 +614,7 @@ function showCfgMsg(type,msg){
 //  SUPABASE CRUD
 // ══════════════════════════════════════════════
 async function loadAllFromSupabase(){
+  if(IMP_BUSY)return;
   if(!SBURL||!SBKEY){loadLocal();return;}
   setSyncState('loading','Chargement…');
   try{
@@ -629,10 +636,12 @@ async function loadAllFromSupabase(){
  
 async function upsertToSupabase(d){
   if(!SBURL||!SBKEY)return false;
-  await sbFetch('POST','semaines',{
-    cle:d.key, sem:d.sem, annee:d.annee, mois:d.mois, mois_nom:d.moisNom,
-    donnees:d, updated_at:new Date().toISOString()
-  });
+  var row={sem:d.sem, annee:d.annee, mois:d.mois, mois_nom:d.moisNom, donnees:d, updated_at:new Date().toISOString()};
+  var upd=await sbFetch('PATCH','semaines?cle=eq.'+encodeURIComponent(d.key),row);
+  if(!upd||!upd.length){
+    row.cle=d.key;
+    await sbFetch('POST','semaines',row);
+  }
   return true;
 }
  
@@ -1753,6 +1762,22 @@ function openDash(m,el){
 //  IMPORT CSV SHOPIFY (sessions par canal et par semaine)
 // ══════════════════════════════════════════════
 var IMP=null;
+var IMP_BUSY=false;
+// Après écriture : relit Supabase et vérifie que les valeurs y sont bien (sinon dit lesquelles manquent)
+async function impVerifier(keys,fields,errMsg){
+  if(!keys.length)return '';
+  if(!SBURL||!SBKEY)return '<br><b style="color:var(--red)">Supabase n\'est pas configuré : les données sont gardées dans ce navigateur seulement.</b>';
+  try{
+    var rows=await sbFetch('GET','semaines?select=cle,donnees&cle=in.('+keys.join(',')+')');
+    var good=0,bad=[];
+    rows.forEach(function(r){var L=DB[r.cle],ok=!!L&&fields.every(function(f){return (r.donnees||{})[f]===L[f];});if(ok)good++;else bad.push(r.cle);});
+    var missing=keys.filter(function(k){return !rows.some(function(r){return r.cle===k;});});
+    bad=bad.concat(missing);
+    if(!bad.length)return '<br><b style="color:var(--green)">✓ Vérifié dans Supabase : '+good+' semaine(s) bien enregistrée(s).</b>';
+    return '<br><b style="color:var(--red)">⚠ '+bad.length+' semaine(s) NON enregistrée(s) dans Supabase ('+bad.join(', ')+').</b>'+(errMsg?' Erreur : '+errMsg:'');
+  }catch(e){return '<br><b style="color:var(--red)">Vérification Supabase impossible : '+e.message+'</b>';}
+}
+ 
 var IMP_SEARCH=['google','bing','duckduckgo','brave','qwant','ecosia','lilo','yahoo','yahoo!','yandex','baidu','startpage','seznam','naver','ask','aol'];
 var IMP_SOCIAL=['facebook','instagram','twitter','x','t.co','linkedin','pinterest','tiktok','youtube','snapchat','reddit','threads','whatsapp','messenger'];
 var IMP_EMAIL=['gmail','email','e-mail','mail','outlook','newsletter','klaviyo','shopify email','shopify_email','mailchimp','brevo','sendinblue'];
@@ -1818,20 +1843,21 @@ function impAnalyser(){
 }
 async function impAppliquer(){
   if(!IMP)return;
-  var btn=document.getElementById('imp-apply'),fillS=document.getElementById('imp-sess').checked,n=0,err=0;
-  btn.disabled=true;btn.textContent='Import…';
-  for(var i=0;i<IMP.length;i++){
-    var o=IMP[i];if(!DB[o.key])continue;
-    var d=DB[o.key];
-    d.sessOrga=o.orga;d.sessDirect=o.direct;d.sessEmail=o.email;d.sessSocial=o.social;d.sessPayant=o.payant;
-    if(fillS&&(d.sessions===null||d.sessions===undefined||d.sessions===''))d.sessions=o.total;
-    n++;
-    try{if(SBURL&&SBKEY)await upsertToSupabase(d);}catch(e){err++;}
-  }
-  saveLocal();
-  btn.disabled=false;btn.textContent='Appliquer';btn.style.display='none';
-  toast(n+' semaine(s) importée(s)'+(err?' — '+err+' erreur(s) de sync':' et synchronisées ✓'));
-  document.getElementById('imp-out').innerHTML='<div class="dhint">✓ '+n+' semaine(s) mise(s) à jour.'+(err?' '+err+' n\'ont pas pu être synchronisées (sauvegardées localement).':'')+'</div>';
+  var btn=document.getElementById('imp-apply'),fillS=document.getElementById('imp-sess').checked,n=0,errMsg='',keys=[];
+  btn.disabled=true;btn.textContent='Import…';IMP_BUSY=true;
+  try{
+    for(var i=0;i<IMP.length;i++){
+      var o=IMP[i];if(!DB[o.key])continue;
+      var d=DB[o.key];
+      d.sessOrga=o.orga;d.sessDirect=o.direct;d.sessEmail=o.email;d.sessSocial=o.social;d.sessPayant=o.payant;
+      if(fillS&&(d.sessions===null||d.sessions===undefined||d.sessions===''))d.sessions=o.total;
+      n++;keys.push(o.key);
+      try{if(SBURL&&SBKEY)await upsertToSupabase(d);}catch(e){if(!errMsg)errMsg=e.message;}
+    }
+    saveLocal();
+    var v=await impVerifier(keys,['sessOrga','sessDirect','sessEmail','sessSocial','sessPayant'],errMsg);
+    document.getElementById('imp-out').innerHTML='<div class="dhint">✓ '+n+' semaine(s) mise(s) à jour.'+v+'</div>';
+  }finally{IMP_BUSY=false;btn.disabled=false;btn.textContent='Appliquer';btn.style.display='none';}
   IMP=null;
   chargerSemaine();
 }
@@ -1877,19 +1903,40 @@ function gscAnalyser(){
 }
 async function gscAppliquer(){
   if(!GSC)return;
-  var btn=document.getElementById('gsc-apply'),n=0,err=0;
-  btn.disabled=true;btn.textContent='Import…';
-  for(var i=0;i<GSC.length;i++){
-    var o=GSC[i];if(!o.use||!DB[o.key])continue;
-    var d=DB[o.key];d.seoClics=o.clics;d.seoImpr=o.impr;d.seoPos=o.pos;
-    n++;
-    try{if(SBURL&&SBKEY)await upsertToSupabase(d);}catch(e){err++;}
-  }
-  saveLocal();
-  btn.disabled=false;btn.textContent='Appliquer';btn.style.display='none';
-  toast(n+' semaine(s) importée(s)'+(err?' — '+err+' erreur(s) de sync':' et synchronisées ✓'));
-  document.getElementById('gsc-out').innerHTML='<div class="dhint">✓ '+n+' semaine(s) mise(s) à jour.'+(err?' '+err+' n\'ont pas pu être synchronisées (sauvegardées localement).':'')+'</div>';
+  var btn=document.getElementById('gsc-apply'),n=0,errMsg='',keys=[];
+  btn.disabled=true;btn.textContent='Import…';IMP_BUSY=true;
+  try{
+    for(var i=0;i<GSC.length;i++){
+      var o=GSC[i];if(!o.use||!DB[o.key])continue;
+      var d=DB[o.key];d.seoClics=o.clics;d.seoImpr=o.impr;d.seoPos=o.pos;
+      n++;keys.push(o.key);
+      try{if(SBURL&&SBKEY)await upsertToSupabase(d);}catch(e){if(!errMsg)errMsg=e.message;}
+    }
+    saveLocal();
+    var v=await impVerifier(keys,['seoClics','seoImpr','seoPos'],errMsg);
+    document.getElementById('gsc-out').innerHTML='<div class="dhint">✓ '+n+' semaine(s) mise(s) à jour.'+v+'</div>';
+  }finally{IMP_BUSY=false;btn.disabled=false;btn.textContent='Appliquer';btn.style.display='none';}
   GSC=null;
+  chargerSemaine();
+}
+ 
+async function zeroPub(){
+  var btn=document.getElementById('btn-zeropub'),n=0,errMsg='',ks=['budgetPub','meta','google','tiktok'],done=[];
+  btn.disabled=true;IMP_BUSY=true;
+  try{
+    var keys=Object.keys(DB).filter(function(k){return /^\d{4}-S\d{2}$/.test(k);});
+    for(var i=0;i<keys.length;i++){
+      var d=DB[keys[i]],ch=false;
+      ks.forEach(function(f){if(d[f]===null||d[f]===undefined||d[f]===''){d[f]=0;ch=true;}});
+      if(!ch)continue;
+      n++;done.push(keys[i]);
+      try{if(SBURL&&SBKEY)await upsertToSupabase(d);}catch(e){if(!errMsg)errMsg=e.message;}
+    }
+    saveLocal();
+    var v=await impVerifier(done,ks,errMsg);
+    var m=document.getElementById('zeropub-out');if(m)m.innerHTML='<div class="dhint" style="margin-top:8px">'+n+' semaine(s) mise(s) à jour.'+v+'</div>';
+    toast(n+' semaine(s) mise(s) à jour');
+  }finally{IMP_BUSY=false;btn.disabled=false;}
   chargerSemaine();
 }
  
