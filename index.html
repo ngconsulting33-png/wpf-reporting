@@ -324,6 +324,26 @@ CREATE POLICY "Modification publique" ON semaines
           </div></div>
         </div>
         <div id="ftab-acq" style="display:none">
+          <div class="fs"><div class="fst">Import Shopify (CSV « Performance par canal de marketing »)</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Colonnes attendues : Semaine, Canal de marketing, Type de trafic, Visites. Seules les semaines <b>déjà saisies</b> sont mises à jour (les 5 champs de sources ci-dessous sont écrasés).</div>
+            <div class="wsbar" style="margin-bottom:8px">
+              <input type="file" id="imp-file" accept=".csv,text/csv" style="height:auto;border:none;padding:0">
+              <label>Ignorer avant</label><input type="date" id="imp-from" value="2026-05-18">
+              <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="imp-sess" checked style="height:auto"> Remplir aussi les sessions si vides</label>
+              <button class="btn" onclick="impAnalyser()">Analyser</button>
+              <button class="btn primary" id="imp-apply" onclick="impAppliquer()" style="display:none">Appliquer</button>
+            </div>
+            <div id="imp-out"></div>
+          </div>
+          <div class="fs"><div class="fst">Import Google Search Console (fichier « Graphique.csv »)</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Dans le zip exporté de Search Console, prends <b>Graphique.csv</b> (colonnes Date, Clics, Impressions, Position, une ligne par jour). Les jours sont additionnés par semaine ; la position est pondérée par les impressions. Seules les semaines <b>déjà saisies</b> et <b>complètes</b> (7 jours) sont mises à jour.</div>
+            <div class="wsbar" style="margin-bottom:8px">
+              <input type="file" id="gsc-file" accept=".csv,text/csv" style="height:auto;border:none;padding:0">
+              <button class="btn" onclick="gscAnalyser()">Analyser</button>
+              <button class="btn primary" id="gsc-apply" onclick="gscAppliquer()" style="display:none">Appliquer</button>
+            </div>
+            <div id="gsc-out"></div>
+          </div>
           <div class="fs"><div class="fst">Sources de trafic (sessions)</div><div class="fg">
             <div class="field"><label>Organique (SEO)</label><input id="f-sessorga" type="number"></div>
             <div class="field"><label>Direct</label><input id="f-sessdirect" type="number"></div>
@@ -1729,6 +1749,150 @@ function openDash(m,el){
   goView('dashboard',el);
   document.getElementById('topbar-title').textContent={ytd:'Dashboard YTD',mois:'Dashboard mensuel',sem:'Dashboard hebdomadaire'}[m];
 }
+// ══════════════════════════════════════════════
+//  IMPORT CSV SHOPIFY (sessions par canal et par semaine)
+// ══════════════════════════════════════════════
+var IMP=null;
+var IMP_SEARCH=['google','bing','duckduckgo','brave','qwant','ecosia','lilo','yahoo','yahoo!','yandex','baidu','startpage','seznam','naver','ask','aol'];
+var IMP_SOCIAL=['facebook','instagram','twitter','x','t.co','linkedin','pinterest','tiktok','youtube','snapchat','reddit','threads','whatsapp','messenger'];
+var IMP_EMAIL=['gmail','email','e-mail','mail','outlook','newsletter','klaviyo','shopify email','shopify_email','mailchimp','brevo','sendinblue'];
+function impClass(canal,type){
+  var c=(canal||'').trim().toLowerCase(),t=(type||'').trim().toLowerCase();
+  if(!c&&!t)return 'none';
+  if(IMP_EMAIL.indexOf(c)>=0)return 'email';
+  if(t==='paid'||t==='payant')return 'payant';
+  if(t==='direct'||c==='direct')return 'direct';
+  if(IMP_SOCIAL.indexOf(c)>=0)return 'social';
+  if(IMP_SEARCH.indexOf(c)>=0)return 'orga';
+  return 'autre';
+}
+function impParseCsv(txt){
+  txt=txt.replace(/^﻿/,'');
+  var rows=[],row=[],cur='',q=false,i,ch,sep=(txt.split('\n')[0].split(';').length>txt.split('\n')[0].split(',').length)?';':',';
+  for(i=0;i<txt.length;i++){
+    ch=txt[i];
+    if(q){if(ch==='"'){if(txt[i+1]==='"'){cur+='"';i++;}else q=false;}else cur+=ch;}
+    else if(ch==='"')q=true;
+    else if(ch===sep){row.push(cur);cur='';}
+    else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&txt[i+1]==='\n')i++;row.push(cur);cur='';if(row.length>1||row[0]!=='')rows.push(row);row=[];}
+    else cur+=ch;
+  }
+  if(cur!==''||row.length){row.push(cur);rows.push(row);}
+  return rows;
+}
+function impAnalyser(){
+  var f=document.getElementById('imp-file').files[0],out=document.getElementById('imp-out');
+  document.getElementById('imp-apply').style.display='none';IMP=null;
+  if(!f){out.innerHTML='<div class="dhint">Choisis d\'abord le fichier CSV.</div>';return;}
+  var rd=new FileReader();
+  rd.onload=function(){
+    var rows=impParseCsv(rd.result);
+    if(rows.length<2){out.innerHTML='<div class="dhint">Fichier vide ou illisible.</div>';return;}
+    var h=rows[0].map(function(x){return x.trim().toLowerCase();});
+    function col(names){for(var j=0;j<h.length;j++)if(names.indexOf(h[j])>=0)return j;return -1;}
+    var cD=col(['semaine','week','week_start','date']),cC=col(['canal de marketing','marketing_channel','marketing channel','canal']),cT=col(['type de trafic','traffic_type','traffic type','type']),cV=col(['visites','sessions','visits']);
+    if(cD<0||cV<0){out.innerHTML='<div class="dhint">Colonnes introuvables : il faut au minimum « Semaine » et « Visites ».</div>';return;}
+    var from=document.getElementById('imp-from').value||'0000-00-00';
+    var W={};
+    rows.slice(1).forEach(function(r){
+      var ds=(r[cD]||'').trim();if(!/^\d{4}-\d{2}-\d{2}/.test(ds)||ds.slice(0,10)<from)return;
+      var p=ds.slice(0,10).split('-'),dt=new Date(+p[0],+p[1]-1,+p[2]),iw=isoWeekYear(dt),k=semKey(iw.w,iw.y);
+      var v=parseFloat((r[cV]||'0').replace(/\s/g,'').replace(',','.'))||0;
+      var cl=impClass(cC>=0?r[cC]:'',cT>=0?r[cT]:'');
+      var o=W[k]||(W[k]={key:k,sem:iw.w,annee:iw.y,orga:0,direct:0,email:0,social:0,payant:0,autre:0,total:0});
+      o.total+=v;if(cl!=='none')o[cl]+=v;
+    });
+    var keys=Object.keys(W).sort();
+    if(!keys.length){out.innerHTML='<div class="dhint">Aucune ligne après la date choisie.</div>';return;}
+    IMP=keys.map(function(k){return W[k];});
+    var ok=0,h2='<table class="tbl" style="width:100%;font-size:11px;margin-top:8px"><tr><th>Semaine</th><th>Organique</th><th>Direct</th><th>Email</th><th>Social</th><th>Payant</th><th>Non classé</th><th>Total</th><th>État</th></tr>';
+    IMP.forEach(function(o){
+      o.exists=!!DB[o.key];if(o.exists)ok++;
+      h2+='<tr style="'+(o.exists?'':'opacity:.5')+'"><td>S'+o.sem+' / '+o.annee+'</td><td>'+o.orga+'</td><td>'+o.direct+'</td><td>'+o.email+'</td><td>'+o.social+'</td><td>'+o.payant+'</td><td>'+o.autre+'</td><td>'+o.total+'</td><td>'+(o.exists?'à mettre à jour':'semaine non saisie : ignorée')+'</td></tr>';
+    });
+    h2+='</table><div class="dhint" style="margin-top:8px"><b>'+ok+'</b> semaine(s) seront mises à jour, '+(IMP.length-ok)+' ignorée(s). « Non classé » = sources hors moteurs de recherche, réseaux sociaux, email, direct ou payant (sites tiers, shopify, unattributed…) : comptées dans le total des sessions mais dans aucun des 5 champs.</div>';
+    out.innerHTML=h2;
+    if(ok)document.getElementById('imp-apply').style.display='';
+  };
+  rd.readAsText(f,'utf-8');
+}
+async function impAppliquer(){
+  if(!IMP)return;
+  var btn=document.getElementById('imp-apply'),fillS=document.getElementById('imp-sess').checked,n=0,err=0;
+  btn.disabled=true;btn.textContent='Import…';
+  for(var i=0;i<IMP.length;i++){
+    var o=IMP[i];if(!DB[o.key])continue;
+    var d=DB[o.key];
+    d.sessOrga=o.orga;d.sessDirect=o.direct;d.sessEmail=o.email;d.sessSocial=o.social;d.sessPayant=o.payant;
+    if(fillS&&(d.sessions===null||d.sessions===undefined||d.sessions===''))d.sessions=o.total;
+    n++;
+    try{if(SBURL&&SBKEY)await upsertToSupabase(d);}catch(e){err++;}
+  }
+  saveLocal();
+  btn.disabled=false;btn.textContent='Appliquer';btn.style.display='none';
+  toast(n+' semaine(s) importée(s)'+(err?' — '+err+' erreur(s) de sync':' et synchronisées ✓'));
+  document.getElementById('imp-out').innerHTML='<div class="dhint">✓ '+n+' semaine(s) mise(s) à jour.'+(err?' '+err+' n\'ont pas pu être synchronisées (sauvegardées localement).':'')+'</div>';
+  IMP=null;
+  chargerSemaine();
+}
+ 
+// ══════════════════════════════════════════════
+//  IMPORT CSV SEARCH CONSOLE (Graphique.csv : une ligne par jour)
+// ══════════════════════════════════════════════
+var GSC=null;
+function gscAnalyser(){
+  var f=document.getElementById('gsc-file').files[0],out=document.getElementById('gsc-out');
+  document.getElementById('gsc-apply').style.display='none';GSC=null;
+  if(!f){out.innerHTML='<div class="dhint">Choisis d\'abord Graphique.csv (dézippe l\'export Search Console).</div>';return;}
+  var rd=new FileReader();
+  rd.onload=function(){
+    var rows=impParseCsv(rd.result);
+    if(rows.length<2){out.innerHTML='<div class="dhint">Fichier vide ou illisible.</div>';return;}
+    var h=rows[0].map(function(x){return x.trim().toLowerCase();});
+    function col(n){for(var j=0;j<h.length;j++)if(n.indexOf(h[j])>=0)return j;return -1;}
+    var cD=col(['date','dates']),cC=col(['clics','clicks']),cI=col(['impressions']),cP=col(['position','position moyenne','average position']);
+    if(cD<0||cC<0||cI<0||cP<0){out.innerHTML='<div class="dhint">Colonnes introuvables : il faut Date, Clics, Impressions et Position (fichier « Graphique.csv »).</div>';return;}
+    function num(x){return parseFloat(String(x||'0').replace(/\s/g,'').replace(',','.'))||0;}
+    var W={};
+    rows.slice(1).forEach(function(r){
+      var ds=(r[cD]||'').trim();if(!/^\d{4}-\d{2}-\d{2}/.test(ds))return;
+      var p=ds.slice(0,10).split('-'),dt=new Date(+p[0],+p[1]-1,+p[2]),iw=isoWeekYear(dt),k=semKey(iw.w,iw.y);
+      var c=num(r[cC]),im=num(r[cI]),po=num(r[cP]);
+      var o=W[k]||(W[k]={key:k,sem:iw.w,annee:iw.y,clics:0,impr:0,posW:0,jours:0});
+      o.clics+=c;o.impr+=im;o.posW+=po*im;o.jours++;
+    });
+    var keys=Object.keys(W).sort();
+    if(!keys.length){out.innerHTML='<div class="dhint">Aucune ligne de date valide.</div>';return;}
+    GSC=keys.map(function(k){var o=W[k];o.pos=o.impr>0?Math.round(o.posW/o.impr*10)/10:null;return o;});
+    var ok=0,h2='<table class="tbl" style="width:100%;font-size:11px;margin-top:8px"><tr><th>Semaine</th><th>Jours</th><th>Clics</th><th>Impressions</th><th>Position</th><th>État</th></tr>';
+    GSC.forEach(function(o){
+      o.exists=!!DB[o.key];o.full=o.jours===7;o.use=o.exists&&o.full;if(o.use)ok++;
+      h2+='<tr style="'+(o.use?'':'opacity:.5')+'"><td>S'+o.sem+' / '+o.annee+'</td><td>'+o.jours+'</td><td>'+o.clics+'</td><td>'+o.impr+'</td><td>'+(o.pos===null?'—':o.pos)+'</td><td>'+(o.use?'à mettre à jour':(!o.full?'semaine incomplète : ignorée':'semaine non saisie : ignorée'))+'</td></tr>';
+    });
+    h2+='</table><div class="dhint" style="margin-top:8px"><b>'+ok+'</b> semaine(s) seront mises à jour (clics, impressions, position).</div>';
+    out.innerHTML=h2;
+    if(ok)document.getElementById('gsc-apply').style.display='';
+  };
+  rd.readAsText(f,'utf-8');
+}
+async function gscAppliquer(){
+  if(!GSC)return;
+  var btn=document.getElementById('gsc-apply'),n=0,err=0;
+  btn.disabled=true;btn.textContent='Import…';
+  for(var i=0;i<GSC.length;i++){
+    var o=GSC[i];if(!o.use||!DB[o.key])continue;
+    var d=DB[o.key];d.seoClics=o.clics;d.seoImpr=o.impr;d.seoPos=o.pos;
+    n++;
+    try{if(SBURL&&SBKEY)await upsertToSupabase(d);}catch(e){err++;}
+  }
+  saveLocal();
+  btn.disabled=false;btn.textContent='Appliquer';btn.style.display='none';
+  toast(n+' semaine(s) importée(s)'+(err?' — '+err+' erreur(s) de sync':' et synchronisées ✓'));
+  document.getElementById('gsc-out').innerHTML='<div class="dhint">✓ '+n+' semaine(s) mise(s) à jour.'+(err?' '+err+' n\'ont pas pu être synchronisées (sauvegardées localement).':'')+'</div>';
+  GSC=null;
+  chargerSemaine();
+}
+ 
 // ══════════════════════════════════════════════
 //  PDF
 // ══════════════════════════════════════════════
